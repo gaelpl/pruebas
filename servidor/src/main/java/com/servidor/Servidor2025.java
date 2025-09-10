@@ -1,65 +1,51 @@
 package com.servidor;
 
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.InputStreamReader;
-import java.io.PrintWriter;
+import java.io.*;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Random;
 
 public class Servidor2025 {
 
+    private static final String ARCHIVO_USUARIOS = "usuarios.txt";
+    private static Map<String, String> usuarios = cargarUsuarios();
+
     public static void main(String[] args) {
-        ServerSocket socketEspecial = null;
-        Socket cliente = null;
-        PrintWriter escritor = null;
-        BufferedReader lectorSocket = null;
-        BufferedReader teclado = null;
+        try (ServerSocket servidor = new ServerSocket(8080)) {
+            System.out.println("Servidor iniciado. Esperando conexión...");
 
-        try {
-            socketEspecial = new ServerSocket(8080);
-            System.out.println("Servidor esperando conexiones en el puerto 8080...");
-            cliente = socketEspecial.accept();
-            System.out.println("Cliente conectado desde: " + cliente.getInetAddress().getHostAddress());
-
-            escritor = new PrintWriter(cliente.getOutputStream(), true);
-            lectorSocket = new BufferedReader(new InputStreamReader(cliente.getInputStream()));
-            teclado = new BufferedReader(new InputStreamReader(System.in));
-
-            String entradaCliente;
-            String mensajeServidor;
-
-            while ((entradaCliente = lectorSocket.readLine()) != null) {
-                System.out.println("Cliente: " + entradaCliente.toUpperCase());
-
-                if (entradaCliente.equalsIgnoreCase("FIN")) {
-                    System.out.println("El cliente ha terminado la conversación.");
-                    break;
-                }
-
-                System.out.print("Servidor: ");
-                mensajeServidor = teclado.readLine();
-                escritor.println(mensajeServidor);
-
-                if (mensajeServidor.equalsIgnoreCase("FIN")) {
-                    System.out.println("El servidor ha terminado la conversación.");
-                    break;
-                }
+            while (true) {
+                Socket cliente = servidor.accept();
+                System.out.println("Cliente conectado desde: " + cliente.getInetAddress().getHostAddress());
+                new Thread(new ManejadorCliente(cliente)).start();
             }
-
         } catch (IOException e) {
-            System.err.println("Error de I/O en el servidor: " + e.getMessage());
-            e.printStackTrace();
-        } finally {
-            try {
-                if (teclado != null) teclado.close();
-                if (lectorSocket != null) lectorSocket.close();
-                if (escritor != null) escritor.close();
-                if (cliente != null) cliente.close();
-                if (socketEspecial != null) socketEspecial.close();
-            } catch (IOException e) {
-                System.err.println("Error al cerrar los recursos: " + e.getMessage());
-            }
+            System.err.println("Error en la conexión del servidor: " + e.getMessage());
         }
     }
+
+    private static Map<String, String> cargarUsuarios() {
+        Map<String, String> usuariosCargados = new HashMap<>();
+        File archivo = new File(ARCHIVO_USUARIOS);
+        
+        if (!archivo.exists()) {
+            return usuariosCargados;
+        }
+
+        try (BufferedReader br = new BufferedReader(new FileReader(archivo))) {
+            String linea;
+            while ((linea = br.readLine()) != null) {
+                String[] partes = linea.split(":");
+                if (partes.length == 2) {
+                    usuariosCargados.put(partes[0], partes[1]);
+                }
+            }
+        } catch (IOException e) {
+            System.err.println("Error leyendo archivo de usuarios: " + e.getMessage());
+        }
+        return usuariosCargados;
+    }
+    
 }
