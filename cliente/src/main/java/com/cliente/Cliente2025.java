@@ -1,32 +1,38 @@
 package com.cliente;
 
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.InputStreamReader;
-import java.io.PrintWriter;
+import java.io.*;
 import java.net.Socket;
-
 
 public class Cliente2025 {
 
-    public static void main(String[] args) throws IOException {
-        Socket salida = new Socket("Localhost",8080);
-        PrintWriter escritor = new PrintWriter(salida.getOutputStream(), true);
-        BufferedReader lector = new BufferedReader(new InputStreamReader(salida.getInputStream()));
-        BufferedReader teclado = new BufferedReader(new InputStreamReader(System.in));
+    public static void main(String[] args) {
+        try (Socket socket = new Socket("localhost", 8080);
+             BufferedReader lectorServidor = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+             PrintWriter escritorServidor = new PrintWriter(socket.getOutputStream(), true);
+             BufferedReader teclado = new BufferedReader(new InputStreamReader(System.in))) {
 
-        String cadena = teclado.readLine();
-        String mensaje;
-        while(!cadena.equalsIgnoreCase("FIN")) {
-            escritor.println(cadena);
-            mensaje = lector.readLine();
-            System.out.println(mensaje);
-            if (mensaje.equalsIgnoreCase("FIN")) {
-                break;
+            String lineaServidor;
+            // Bucle principal para la interacción
+            while ((lineaServidor = lectorServidor.readLine()) != null) {
+                System.out.println("Servidor: " + lineaServidor);
+
+                if (lineaServidor.toLowerCase().contains("escribe") ||
+                    lineaServidor.toLowerCase().contains("introduce") ||
+                    lineaServidor.toLowerCase().contains("elige") ||
+                    lineaServidor.toLowerCase().contains("bienvenido")) {
+                        
+                    System.out.print("Tu respuesta: ");
+                    String respuesta = teclado.readLine();
+                    escritorServidor.println(respuesta);
+                    
+                    if (lineaServidor.toLowerCase().contains("éxito") || 
+                        lineaServidor.toLowerCase().contains("incorrecto") ||
+                        lineaServidor.toLowerCase().contains("existe")) {
+                    }
+                }
             }
-            cadena = teclado.readLine();
+        } catch (IOException e) {
+            System.err.println("Error en la conexión o I/O: " + e.getMessage());
         }
-        salida.close();
-
     }
 }
