@@ -48,17 +48,30 @@ public class Servidor2025 {
         return usuariosCargados;
     }
 
-    // Comienzo de la clase interna ManejadorCliente, agregada en este commit
     static class ManejadorCliente implements Runnable {
         private Socket cliente;
+        private PrintWriter escritor;
+        private BufferedReader lector;
 
         public ManejadorCliente(Socket cliente) {
             this.cliente = cliente;
         }
 
-        @Override
         public void run() {
-            // La lógica de comunicación se agregará en futuros commits
+            try {
+                escritor = new PrintWriter(cliente.getOutputStream(), true);
+                lector = new BufferedReader(new InputStreamReader(cliente.getInputStream()));
+            } catch (IOException e) {
+                System.err.println("Error en la comunicación con el cliente: " + e.getMessage());
+            } finally {
+                try {
+                    if (lector != null) lector.close();
+                    if (escritor != null) escritor.close();
+                    if (cliente != null) cliente.close();
+                } catch (IOException e) {
+                    System.err.println("Error al cerrar recursos del cliente: " + e.getMessage());
+                }
+            }
         }
     }
 }
