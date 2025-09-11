@@ -47,5 +47,18 @@ public class Servidor2025 {
         }
         return usuariosCargados;
     }
-    
+
+    // Comienzo de la clase interna ManejadorCliente, agregada en este commit
+    static class ManejadorCliente implements Runnable {
+        private Socket cliente;
+
+        public ManejadorCliente(Socket cliente) {
+            this.cliente = cliente;
+        }
+
+        @Override
+        public void run() {
+            // La lógica de comunicación se agregará en futuros commits
+        }
+    }
 }
