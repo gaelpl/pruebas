@@ -1,0 +1,39 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "java",
+            "name": "Servidor2025",
+            "request": "launch",
+            "mainClass": "com.servidor.Servidor2025",
+            "projectName": "pruebas"
+        },
+        {
+            "type": "java",
+            "name": "Servidor2025",
+            "request": "launch",
+            "mainClass": "com.servidor.Servidor2025",
+            "projectName": "pruebas"
+        },
+        {
+            "type": "java",
+            "name": "Launch Servidor2025",
+            "request": "launch",
+            "mainClass": "com.servidor.Servidor2025",
+            "projectName": "pruebas",
+            "classPaths": [
+                "${workspaceFolder}/bin"
+            ]
+        },
+        {
+            "type": "java",
+            "name": "Launch Cliente2025",
+            "request": "launch",
+            "mainClass": "com.cliente.Cliente2025",
+            "projectName": "pruebas",
+            "classPaths": [
+                "${workspaceFolder}/bin"
+            ]
+        }
+    ]
+}
