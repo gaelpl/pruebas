@@ -74,22 +74,28 @@ public class Servidor2025 {
 
                 boolean autenticado = false;
                 while (!autenticado) {
-                    escritor.println("Bienvenido. Escribe 'login' para iniciar sesión o 'register' para crear cuenta.");
+                    escritor.println("Bienvenido. Escribe 'login' para iniciar sesion o 'register' para crear cuenta.");
                     String accion = lector.readLine();
 
                     if (accion == null) {
                         break;
-                    }                    
+                    }
+                    
                     if ("login".equalsIgnoreCase(accion)) {
                         autenticado = manejarLogin();
                     } else if ("register".equalsIgnoreCase(accion)) {
                         manejarRegistro();
                     } else {
-                        escritor.println("Acción no reconocida. Intenta de nuevo.");
+                        escritor.println("Accion no reconocida. Intenta de nuevo.");
                     }
                 }
+
+                if (autenticado) {
+                    jugarJuego();
+                }
+                
             } catch (IOException e) {
-                System.err.println("Error en la comunicación con el cliente: " + e.getMessage());
+                System.err.println("Error en la comunicacion con el cliente: " + e.getMessage());
             } finally {
                 try {
                     if (lector != null) lector.close();
@@ -104,14 +110,14 @@ public class Servidor2025 {
         private boolean manejarLogin() throws IOException {
             escritor.println("Introduce tu usuario:");
             String usuario = lector.readLine();
-            escritor.println("Introduce tu contraseña:");
+            escritor.println("Introduce tu contrasena:");
             String contrasena = lector.readLine();
 
             if (usuarios.containsKey(usuario) && usuarios.get(usuario).equals(contrasena)) {
-                escritor.println("Inicio de sesión exitoso. ¡Bienvenido " + usuario + "!");
+                escritor.println("Inicio de sesion exitoso. ¡Bienvenido " + usuario + "!");
                 return true;
             } else {
-                escritor.println("Usuario o contraseña incorrectos.");
+                escritor.println("Usuario o contrasena incorrectos.");
                 return false;
             }
         }
@@ -119,14 +125,47 @@ public class Servidor2025 {
         private void manejarRegistro() throws IOException {
             escritor.println("Elige un usuario:");
             String nuevoUsuario = lector.readLine();
+
             if (usuarios.containsKey(nuevoUsuario)) {
-                escritor.println("El usuario ya existe. Intenta iniciar sesión.");
+                escritor.println("El usuario ya existe. Intenta iniciar sesion.");
             } else {
-                escritor.println("Elige una contraseña:");
+                escritor.println("Elige una contrasena:");
                 String nuevaContrasena = lector.readLine();
                 usuarios.put(nuevoUsuario, nuevaContrasena);
                 guardarUsuarios();
-                escritor.println("Registro exitoso. Ahora puedes iniciar sesión.");
+                escritor.println("Registro exitoso. Ahora puedes iniciar sesion.");
+            }
+        }
+
+        private void jugarJuego() throws IOException {
+            Random random = new Random();
+            int numeroSecreto = random.nextInt(10) + 1;
+            int intentos = 0;
+            boolean adivinado = false;
+
+            escritor.println("¡Adivina el numero! He generado un numero entre 1 y 10.");
+            
+            while (!adivinado) {
+                try {
+                    String intentoStr = lector.readLine();
+                    if (intentoStr == null) {
+                        break;
+                    }
+                    
+                    int intento = Integer.parseInt(intentoStr);
+                    intentos++;
+
+                    if (intento < numeroSecreto) {
+                        escritor.println("El numero es mayor.");
+                    } else if (intento > numeroSecreto) {
+                        escritor.println("El numero es menor.");
+                    } else {
+                        escritor.println("¡Correcto! Adivinaste el numero " + numeroSecreto + " en " + intentos + " intentos.");
+                        adivinado = true;
+                    }
+                } catch (NumberFormatException e) {
+                    escritor.println("Entrada invalida. Por favor, introduce un numero.");
+                }
             }
         }
     }
