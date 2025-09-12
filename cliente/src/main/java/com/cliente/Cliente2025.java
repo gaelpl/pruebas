@@ -12,23 +12,22 @@ public class Cliente2025 {
              BufferedReader teclado = new BufferedReader(new InputStreamReader(System.in))) {
 
             String lineaServidor;
-            // Bucle principal para la interacción
             while ((lineaServidor = lectorServidor.readLine()) != null) {
                 System.out.println("Servidor: " + lineaServidor);
 
                 if (lineaServidor.toLowerCase().contains("escribe") ||
                     lineaServidor.toLowerCase().contains("introduce") ||
                     lineaServidor.toLowerCase().contains("elige") ||
-                    lineaServidor.toLowerCase().contains("bienvenido")) {
+                    lineaServidor.toLowerCase().contains("adivina el numero") ||
+                    lineaServidor.toLowerCase().contains("mayor") ||
+                    lineaServidor.toLowerCase().contains("menor")) {
                         
                     System.out.print("Tu respuesta: ");
                     String respuesta = teclado.readLine();
                     escritorServidor.println(respuesta);
-                    
-                    if (lineaServidor.toLowerCase().contains("éxito") || 
-                        lineaServidor.toLowerCase().contains("incorrecto") ||
-                        lineaServidor.toLowerCase().contains("existe")) {
-                    }
+
+                } else if (lineaServidor.toLowerCase().contains("correcto!")) {
+                    break;
                 }
             }
         } catch (IOException e) {
