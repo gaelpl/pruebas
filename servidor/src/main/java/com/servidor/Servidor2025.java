@@ -90,6 +90,10 @@ public class Servidor2025 {
                     }
                 }
 
+                if (autenticado) {
+                    jugarJuego();
+                }
+                
             } catch (IOException e) {
                 System.err.println("Error en la comunicacion con el cliente: " + e.getMessage());
             } finally {
