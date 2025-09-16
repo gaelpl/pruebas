@@ -11,6 +11,7 @@ public class Servidor2025 {
 
     private static final String ARCHIVO_USUARIOS = "usuarios.txt";
     private static Map<String, String> usuarios = cargarUsuarios();
+    private static final String ARCHIVO_MENSAJES = "mensajes.txt";
 
     public static void main(String[] args) {
         try (ServerSocket servidor = new ServerSocket(8080)) {
@@ -57,11 +58,12 @@ public class Servidor2025 {
             System.err.println("Error escribiendo archivo de usuarios: " + e.getMessage());
         }
     }
-
+    
     static class ManejadorCliente implements Runnable {
         private Socket cliente;
         private PrintWriter escritor;
         private BufferedReader lector;
+        private String usuarioAutenticado = null; 
 
         public ManejadorCliente(Socket cliente) {
             this.cliente = cliente;
@@ -91,7 +93,16 @@ public class Servidor2025 {
                 }
 
                 if (autenticado) {
-                    jugarJuego();
+                    escritor.println("Escribe 'jugar' para adivinar el número o 'chat' para enviar un mensaje.");
+                    String opcion = lector.readLine();
+
+                    if ("jugar".equalsIgnoreCase(opcion)) {
+                        jugarJuego();
+                    } else if ("chat".equalsIgnoreCase(opcion)) {
+                        manejarChat();
+                    } else {
+                        escritor.println("Opcion no reconocida. Conexión finalizada.");
+                    }
                 }
                 
             } catch (IOException e) {
@@ -114,6 +125,7 @@ public class Servidor2025 {
             String contrasena = lector.readLine();
 
             if (usuarios.containsKey(usuario) && usuarios.get(usuario).equals(contrasena)) {
+                this.usuarioAutenticado = usuario; 
                 escritor.println("Inicio de sesion exitoso. ¡Bienvenido " + usuario + "!");
                 return true;
             } else {
@@ -166,6 +178,15 @@ public class Servidor2025 {
                 } catch (NumberFormatException e) {
                     escritor.println("Entrada invalida. Por favor, introduce un numero.");
                 }
+            }
+        }
+
+        private void manejarChat() throws IOException {
+            escritor.println("Has entrado al chat. Escribe tu mensaje.");
+            String mensaje = lector.readLine();
+            if (mensaje != null && !mensaje.isEmpty()) {
+                guardarMensaje("[" + this.usuarioAutenticado + "]: " + mensaje);
+                escritor.println("Mensaje enviado.");
             }
         }
     }
