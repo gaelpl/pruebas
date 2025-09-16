@@ -59,11 +59,19 @@ public class Servidor2025 {
         }
     }
     
+    private static synchronized void guardarMensaje(String mensaje) {
+        try (PrintWriter pw = new PrintWriter(new FileWriter(ARCHIVO_MENSAJES, true))) {
+            pw.println(mensaje);
+        } catch (IOException e) {
+            System.err.println("Error escribiendo en el archivo de mensajes: " + e.getMessage());
+        }
+    }
+
     static class ManejadorCliente implements Runnable {
         private Socket cliente;
         private PrintWriter escritor;
         private BufferedReader lector;
-        private String usuarioAutenticado = null; 
+        private String usuarioAutenticado = null;
 
         public ManejadorCliente(Socket cliente) {
             this.cliente = cliente;
@@ -93,7 +101,7 @@ public class Servidor2025 {
                 }
 
                 if (autenticado) {
-                    escritor.println("Escribe 'jugar' para adivinar el número o 'chat' para enviar un mensaje.");
+                    escritor.println("Escribe 'jugar' para adivinar el numero o 'chat' para enviar un mensaje.");
                     String opcion = lector.readLine();
 
                     if ("jugar".equalsIgnoreCase(opcion)) {
@@ -125,7 +133,7 @@ public class Servidor2025 {
             String contrasena = lector.readLine();
 
             if (usuarios.containsKey(usuario) && usuarios.get(usuario).equals(contrasena)) {
-                this.usuarioAutenticado = usuario; 
+                this.usuarioAutenticado = usuario;
                 escritor.println("Inicio de sesion exitoso. ¡Bienvenido " + usuario + "!");
                 return true;
             } else {
