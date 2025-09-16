@@ -6,12 +6,15 @@ import java.net.Socket;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Random;
+import java.util.ArrayList;
+import java.util.List;
 
 public class Servidor2025 {
 
     private static final String ARCHIVO_USUARIOS = "usuarios.txt";
     private static Map<String, String> usuarios = cargarUsuarios();
     private static final String ARCHIVO_MENSAJES = "mensajes.txt";
+    private static List<PrintWriter> clientesConectados = new ArrayList<>();
 
     public static void main(String[] args) {
         try (ServerSocket servidor = new ServerSocket(8080)) {
@@ -66,6 +69,14 @@ public class Servidor2025 {
             System.err.println("Error escribiendo en el archivo de mensajes: " + e.getMessage());
         }
     }
+    
+    private static void enviarMensajeATodos(String mensaje) {
+        synchronized(clientesConectados) {
+            for (PrintWriter escritor : clientesConectados) {
+                escritor.println(mensaje);
+            }
+        }
+    }
 
     static class ManejadorCliente implements Runnable {
         private Socket cliente;
@@ -81,6 +92,10 @@ public class Servidor2025 {
             try {
                 escritor = new PrintWriter(cliente.getOutputStream(), true);
                 lector = new BufferedReader(new InputStreamReader(cliente.getInputStream()));
+                
+                synchronized(clientesConectados) {
+                    clientesConectados.add(escritor);
+                }
 
                 boolean autenticado = false;
                 while (!autenticado) {
@@ -101,21 +116,28 @@ public class Servidor2025 {
                 }
 
                 if (autenticado) {
-                    escritor.println("Escribe 'jugar' para adivinar el numero o 'chat' para enviar un mensaje.");
-                    String opcion = lector.readLine();
+                    cargarMensajesAnteriores();
 
-                    if ("jugar".equalsIgnoreCase(opcion)) {
-                        jugarJuego();
-                    } else if ("chat".equalsIgnoreCase(opcion)) {
-                        manejarChat();
-                    } else {
-                        escritor.println("Opcion no reconocida. Conexión finalizada.");
+                    String opcion;
+                    while ((opcion = lector.readLine()) != null) {
+                         if ("jugar".equalsIgnoreCase(opcion)) {
+                            jugarJuego();
+                            escritor.println("Escribe 'jugar' para adivinar el numero o 'chat' para enviar un mensaje.");
+                        } else if ("chat".equalsIgnoreCase(opcion)) {
+                            manejarChat();
+                            escritor.println("Escribe 'jugar' para adivinar el numero o 'chat' para enviar un mensaje.");
+                        } else {
+                            escritor.println("Opcion no reconocida. Escribe 'jugar' o 'chat'.");
+                        }
                     }
                 }
                 
             } catch (IOException e) {
                 System.err.println("Error en la comunicacion con el cliente: " + e.getMessage());
             } finally {
+                synchronized(clientesConectados) {
+                    clientesConectados.remove(escritor);
+                }
                 try {
                     if (lector != null) lector.close();
                     if (escritor != null) escritor.close();
@@ -190,11 +212,29 @@ public class Servidor2025 {
         }
 
         private void manejarChat() throws IOException {
-            escritor.println("Has entrado al chat. Escribe tu mensaje.");
-            String mensaje = lector.readLine();
-            if (mensaje != null && !mensaje.isEmpty()) {
-                guardarMensaje("[" + this.usuarioAutenticado + "]: " + mensaje);
-                escritor.println("Mensaje enviado.");
+            escritor.println("Has entrado al chat. Escribe tu mensaje o 'salir' para volver al menu principal.");
+            String mensaje;
+            while ((mensaje = lector.readLine()) != null) {
+                if ("salir".equalsIgnoreCase(mensaje)) {
+                    break;
+                }
+                if (!mensaje.isEmpty()) {
+                    String mensajeCompleto = "[" + this.usuarioAutenticado + "]: " + mensaje;
+                    guardarMensaje(mensajeCompleto);
+                    enviarMensajeATodos(mensajeCompleto);
+                }
+            }
+        }
+
+        private void cargarMensajesAnteriores() {
+            try (BufferedReader br = new BufferedReader(new FileReader(ARCHIVO_MENSAJES))) {
+                String linea;
+                escritor.println("--- Historial del Chat ---");
+                while ((linea = br.readLine()) != null) {
+                    escritor.println(linea);
+                }
+                escritor.println("-------------------------");
+            } catch (IOException e) {
             }
         }
     }
