@@ -11,25 +11,23 @@ public class Cliente2025 {
              PrintWriter escritorServidor = new PrintWriter(socket.getOutputStream(), true);
              BufferedReader teclado = new BufferedReader(new InputStreamReader(System.in))) {
 
-            String lineaServidor;
-            while ((lineaServidor = lectorServidor.readLine()) != null) {
-                System.out.println("Servidor: " + lineaServidor);
-
-                if (lineaServidor.toLowerCase().contains("escribe") ||
-                    lineaServidor.toLowerCase().contains("introduce") ||
-                    lineaServidor.toLowerCase().contains("elige") ||
-                    lineaServidor.toLowerCase().contains("adivina el numero") ||
-                    lineaServidor.toLowerCase().contains("mayor") ||
-                    lineaServidor.toLowerCase().contains("menor")) {
-                        
-                    System.out.print("Tu respuesta: ");
-                    String respuesta = teclado.readLine();
-                    escritorServidor.println(respuesta);
-
-                } else if (lineaServidor.toLowerCase().contains("correcto!")) {
-                    break;
+            Thread lectorThread = new Thread(() -> {
+                String lineaServidor;
+                try {
+                    while ((lineaServidor = lectorServidor.readLine()) != null) {
+                        System.out.println("Servidor: " + lineaServidor);
+                    }
+                } catch (IOException e) {
+                    System.err.println("Conexion perdida con el servidor.");
                 }
+            });
+            lectorThread.start();
+
+            String comando;
+            while ((comando = teclado.readLine()) != null) {
+                escritorServidor.println(comando);
             }
+
         } catch (IOException e) {
             System.err.println("Error en la conexión o I/O: " + e.getMessage());
         }
