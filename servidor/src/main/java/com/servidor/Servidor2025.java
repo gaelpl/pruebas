@@ -224,16 +224,27 @@ public class Servidor2025 {
         }
 
         private void manejarChat() throws IOException {
-            escritor.println("Has entrado al chat. Escribe tu mensaje o 'salir' para volver al menu principal.");
-            String mensaje;
-            while ((mensaje = lector.readLine()) != null) {
-                if ("salir".equalsIgnoreCase(mensaje)) {
+            escritor.println("Has entrado al chat privado.");
+            escritor.println("Escribe tus mensajes con formato 'destinatario: mensaje'. Escribe 'salir' para volver.");
+
+            String linea;
+            while ((linea = lector.readLine()) != null) {
+                if ("salir".equalsIgnoreCase(linea)) {
                     break;
                 }
-                if (!mensaje.isEmpty()) {
-                    String mensajeCompleto = "[" + this.usuarioAutenticado + "]: " + mensaje;
-                    guardarMensaje(mensajeCompleto);
-                    enviarMensajeATodos(mensajeCompleto);
+                if (linea.contains(":")) {
+                    int idx = linea.indexOf(":");
+                    String destinatario = linea.substring(0, idx).trim();
+                    String mensaje = linea.substring(idx + 1).trim();
+
+                    if (!destinatario.isEmpty() && !mensaje.isEmpty()) {
+                        enviarMensajePrivado(this.usuarioAutenticado, destinatario, mensaje);
+                        guardarMensaje("[Privado " + this.usuarioAutenticado + " -> " + destinatario + "]: " + mensaje);
+                    } else {
+                        escritor.println("Formato incorrecto. Usa 'destinatario: mensaje'");
+                    }
+                } else {
+                    escritor.println("Formato incorrecto. Usa 'destinatario: mensaje'");
                 }
             }
         }
