@@ -70,10 +70,14 @@ public class Servidor2025 {
         }
     }
 
-    private static void enviarMensajeATodos(String mensaje) {
+    private static void enviarMensajePrivado(String remitente, String destinatario, String mensaje) {
         synchronized (clientesConectados) {
-            for (PrintWriter escritor : clientesConectados) {
-                escritor.println(mensaje);
+            PrintWriter escritorDestinatario = clientesConectados.get(destinatario);
+            PrintWriter escritorRemitente = clientesConectados.get(remitente);
+            if (escritorDestinatario != null) {
+                escritorDestinatario.println("[Privado de " + remitente + "]: " + mensaje);
+            } else if (escritorRemitente != null) {
+                escritorRemitente.println("El usuario '" + destinatario + "' no está conectado.");
             }
         }
     }
