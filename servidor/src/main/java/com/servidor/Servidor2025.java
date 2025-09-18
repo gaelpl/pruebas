@@ -14,7 +14,7 @@ public class Servidor2025 {
     private static final String ARCHIVO_USUARIOS = "usuarios.txt";
     private static Map<String, String> usuarios = cargarUsuarios();
     private static final String ARCHIVO_MENSAJES = "mensajes.txt";
-    private static List<PrintWriter> clientesConectados = new ArrayList<>();
+    private static Map<String, PrintWriter> clientesConectados = new HashMap<>();
 
     public static void main(String[] args) {
         try (ServerSocket servidor = new ServerSocket(8080)) {
@@ -33,7 +33,7 @@ public class Servidor2025 {
     private static Map<String, String> cargarUsuarios() {
         Map<String, String> usuariosCargados = new HashMap<>();
         File archivo = new File(ARCHIVO_USUARIOS);
-        
+
         if (!archivo.exists()) {
             return usuariosCargados;
         }
@@ -61,7 +61,7 @@ public class Servidor2025 {
             System.err.println("Error escribiendo archivo de usuarios: " + e.getMessage());
         }
     }
-    
+
     private static synchronized void guardarMensaje(String mensaje) {
         try (PrintWriter pw = new PrintWriter(new FileWriter(ARCHIVO_MENSAJES, true))) {
             pw.println(mensaje);
@@ -69,9 +69,9 @@ public class Servidor2025 {
             System.err.println("Error escribiendo en el archivo de mensajes: " + e.getMessage());
         }
     }
-    
+
     private static void enviarMensajeATodos(String mensaje) {
-        synchronized(clientesConectados) {
+        synchronized (clientesConectados) {
             for (PrintWriter escritor : clientesConectados) {
                 escritor.println(mensaje);
             }
@@ -92,9 +92,9 @@ public class Servidor2025 {
             try {
                 escritor = new PrintWriter(cliente.getOutputStream(), true);
                 lector = new BufferedReader(new InputStreamReader(cliente.getInputStream()));
-                
-                synchronized(clientesConectados) {
-                    clientesConectados.add(escritor);
+
+                synchronized (clientesConectados) {
+                    clientesConectados.put(this.usuarioAutenticado, escritor);
                 }
 
                 boolean autenticado = false;
@@ -105,7 +105,7 @@ public class Servidor2025 {
                     if (accion == null) {
                         break;
                     }
-                    
+
                     if ("login".equalsIgnoreCase(accion)) {
                         autenticado = manejarLogin();
                     } else if ("register".equalsIgnoreCase(accion)) {
@@ -120,28 +120,35 @@ public class Servidor2025 {
 
                     String opcion;
                     while ((opcion = lector.readLine()) != null) {
-                         if ("jugar".equalsIgnoreCase(opcion)) {
+                        if ("jugar".equalsIgnoreCase(opcion)) {
                             jugarJuego();
-                            escritor.println("Escribe 'jugar' para adivinar el numero o 'chat' para enviar un mensaje.");
+                            escritor.println(
+                                    "Escribe 'jugar' para adivinar el numero o 'chat' para enviar un mensaje.");
                         } else if ("chat".equalsIgnoreCase(opcion)) {
                             manejarChat();
-                            escritor.println("Escribe 'jugar' para adivinar el numero o 'chat' para enviar un mensaje.");
+                            escritor.println(
+                                    "Escribe 'jugar' para adivinar el numero o 'chat' para enviar un mensaje.");
                         } else {
                             escritor.println("Opcion no reconocida. Escribe 'jugar' o 'chat'.");
                         }
                     }
                 }
-                
+
             } catch (IOException e) {
                 System.err.println("Error en la comunicacion con el cliente: " + e.getMessage());
             } finally {
-                synchronized(clientesConectados) {
-                    clientesConectados.remove(escritor);
+                synchronized (clientesConectados) {
+                    if (this.usuarioAutenticado != null) {
+                        clientesConectados.remove(this.usuarioAutenticado);
+                    }
                 }
                 try {
-                    if (lector != null) lector.close();
-                    if (escritor != null) escritor.close();
-                    if (cliente != null) cliente.close();
+                    if (lector != null)
+                        lector.close();
+                    if (escritor != null)
+                        escritor.close();
+                    if (cliente != null)
+                        cliente.close();
                 } catch (IOException e) {
                     System.err.println("Error al cerrar recursos del cliente: " + e.getMessage());
                 }
@@ -186,14 +193,14 @@ public class Servidor2025 {
             boolean adivinado = false;
 
             escritor.println("¡Adivina el numero! He generado un numero entre 1 y 10.");
-            
+
             while (!adivinado) {
                 try {
                     String intentoStr = lector.readLine();
                     if (intentoStr == null) {
                         break;
                     }
-                    
+
                     int intento = Integer.parseInt(intentoStr);
                     intentos++;
 
@@ -202,7 +209,8 @@ public class Servidor2025 {
                     } else if (intento > numeroSecreto) {
                         escritor.println("El numero es menor.");
                     } else {
-                        escritor.println("¡Correcto! Adivinaste el numero " + numeroSecreto + " en " + intentos + " intentos.");
+                        escritor.println(
+                                "¡Correcto! Adivinaste el numero " + numeroSecreto + " en " + intentos + " intentos.");
                         adivinado = true;
                     }
                 } catch (NumberFormatException e) {
