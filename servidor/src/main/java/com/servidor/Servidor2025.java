@@ -22,7 +22,7 @@ public class Servidor2025 {
 
             while (true) {
                 Socket cliente = servidor.accept();
-                System.out.println("Cliente conectado desde: " + cliente.getInetAddress().getHostAddress());
+                System.out.println("Cliente conectado desde: " + cliente.getInetaddress().getHostAddress());
                 new Thread(new ManejadorCliente(cliente)).start();
             }
         } catch (IOException e) {
@@ -122,19 +122,22 @@ public class Servidor2025 {
                     }
                     
                     String opcion;
-                    escritor.println("Escribe 'jugar' para adivinar el numero, 'chat' para enviar un mensaje, o 'buzon' para ver tus mensajes.");
+                    escritor.println("Escribe 'jugar', 'chat', 'buzon' o 'borrar'.");
                     while ((opcion = lector.readLine()) != null) {
                          if ("jugar".equalsIgnoreCase(opcion)) {
                             jugarJuego();
-                            escritor.println("Escribe 'jugar', 'chat' o 'buzon'.");
+                            escritor.println("Escribe 'jugar', 'chat', 'buzon' o 'borrar'.");
                         } else if ("chat".equalsIgnoreCase(opcion)) {
                             manejarChat();
-                            escritor.println("Escribe 'jugar', 'chat' o 'buzon'.");
+                            escritor.println("Escribe 'jugar', 'chat', 'buzon' o 'borrar'.");
                         } else if ("buzon".equalsIgnoreCase(opcion)) {
                             cargarBuzon();
-                            escritor.println("Escribe 'jugar', 'chat' o 'buzon'.");
+                            escritor.println("Escribe 'jugar', 'chat', 'buzon' o 'borrar'.");
+                        } else if ("borrar".equalsIgnoreCase(opcion)) {
+                            borrarMensaje();
+                            escritor.println("Escribe 'jugar', 'chat', 'buzon' o 'borrar'.");
                         } else {
-                            escritor.println("Opcion no reconocida. Escribe 'jugar', 'chat' o 'buzon'.");
+                            escritor.println("Opcion no reconocida. Escribe 'jugar', 'chat', 'buzon' o 'borrar'.");
                         }
                     }
                 }
@@ -238,6 +241,64 @@ public class Servidor2025 {
             }
         }
 
+        private void borrarMensaje() throws IOException {
+            List<String> mensajesDelBuzon = new ArrayList<>();
+            try (BufferedReader br = new BufferedReader(new FileReader(ARCHIVO_MENSAJES))) {
+                String linea;
+                int contador = 1;
+                escritor.println("--- Buzón de " + this.usuarioAutenticado + " ---");
+                while ((linea = br.readLine()) != null) {
+                    if (linea.contains(":para:" + this.usuarioAutenticado + ":")) {
+                        String[] partes = linea.split(":mensaje:");
+                        String mensaje = partes[1];
+                        escritor.println(contador + ". " + mensaje);
+                        mensajesDelBuzon.add(linea); 
+                        contador++;
+                    }
+                }
+                escritor.println("-------------------------");
+            } catch (IOException e) {
+                escritor.println("No hay mensajes en tu buzón.");
+                return;
+            }
+
+            if (mensajesDelBuzon.isEmpty()) {
+                escritor.println("No hay mensajes que puedas borrar.");
+                return;
+            }
+
+            escritor.println("Escribe el numero del mensaje que deseas borrar o 'salir' para cancelar.");
+            String opcion = lector.readLine();
+            if ("salir".equalsIgnoreCase(opcion)) {
+                return;
+            }
+            
+            try {
+                int numeroMensaje = Integer.parseInt(opcion);
+                if (numeroMensaje > 0 && numeroMensaje <= mensajesDelBuzon.size()) {
+                    mensajesDelBuzon.remove(numeroMensaje - 1); 
+                    reescribirArchivoMensajes(mensajesDelBuzon);
+                    escritor.println("Mensaje borrado exitosamente.");
+                } else {
+                    escritor.println("Numero de mensaje inválido.");
+                }
+            } catch (NumberFormatException e) {
+                escritor.println("Entrada inválida. Por favor, introduce un numero.");
+            }
+        }
+
+        private void reescribirArchivoMensajes(List<String> mensajes) {
+            synchronized (Servidor2025.class) {
+                try (PrintWriter pw = new PrintWriter(new FileWriter(ARCHIVO_MENSAJES))) {
+                    for (String mensaje : mensajes) {
+                        pw.println(mensaje);
+                    }
+                } catch (IOException e) {
+                    System.err.println("Error reescribiendo el archivo de mensajes: " + e.getMessage());
+                }
+            }
+        }
+        
         private void cargarBuzon() throws IOException {
             try (BufferedReader br = new BufferedReader(new FileReader(ARCHIVO_MENSAJES))) {
                 String linea;
