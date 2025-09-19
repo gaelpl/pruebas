@@ -22,7 +22,7 @@ public class Servidor2025 {
 
             while (true) {
                 Socket cliente = servidor.accept();
-                System.out.println("Cliente conectado desde: " + cliente.getInetaddress().getHostAddress());
+                System.out.println("Cliente conectado desde: " + cliente.getInetAddress().getHostAddress());
                 new Thread(new ManejadorCliente(cliente)).start();
             }
         } catch (IOException e) {
@@ -122,22 +122,25 @@ public class Servidor2025 {
                     }
                     
                     String opcion;
-                    escritor.println("Escribe 'jugar', 'chat', 'buzon' o 'borrar'.");
+                    escritor.println("Escribe 'jugar', 'chat', 'buzon', 'borrar' o 'eliminar'.");
                     while ((opcion = lector.readLine()) != null) {
                          if ("jugar".equalsIgnoreCase(opcion)) {
                             jugarJuego();
-                            escritor.println("Escribe 'jugar', 'chat', 'buzon' o 'borrar'.");
+                            escritor.println("Escribe 'jugar', 'chat', 'buzon', 'borrar' o 'eliminar'.");
                         } else if ("chat".equalsIgnoreCase(opcion)) {
                             manejarChat();
-                            escritor.println("Escribe 'jugar', 'chat', 'buzon' o 'borrar'.");
+                            escritor.println("Escribe 'jugar', 'chat', 'buzon', 'borrar' o 'eliminar'.");
                         } else if ("buzon".equalsIgnoreCase(opcion)) {
                             cargarBuzon();
-                            escritor.println("Escribe 'jugar', 'chat', 'buzon' o 'borrar'.");
+                            escritor.println("Escribe 'jugar', 'chat', 'buzon', 'borrar' o 'eliminar'.");
                         } else if ("borrar".equalsIgnoreCase(opcion)) {
                             borrarMensaje();
-                            escritor.println("Escribe 'jugar', 'chat', 'buzon' o 'borrar'.");
+                            escritor.println("Escribe 'jugar', 'chat', 'buzon', 'borrar' o 'eliminar'.");
+                        } else if ("eliminar".equalsIgnoreCase(opcion)) {
+                            eliminarCuenta();
+                            break; 
                         } else {
-                            escritor.println("Opcion no reconocida. Escribe 'jugar', 'chat', 'buzon' o 'borrar'.");
+                            escritor.println("Opcion no reconocida. Escribe 'jugar', 'chat', 'buzon', 'borrar' o 'eliminar'.");
                         }
                     }
                 }
@@ -252,7 +255,7 @@ public class Servidor2025 {
                         String[] partes = linea.split(":mensaje:");
                         String mensaje = partes[1];
                         escritor.println(contador + ". " + mensaje);
-                        mensajesDelBuzon.add(linea); 
+                        mensajesDelBuzon.add(linea);
                         contador++;
                     }
                 }
@@ -276,7 +279,7 @@ public class Servidor2025 {
             try {
                 int numeroMensaje = Integer.parseInt(opcion);
                 if (numeroMensaje > 0 && numeroMensaje <= mensajesDelBuzon.size()) {
-                    mensajesDelBuzon.remove(numeroMensaje - 1); 
+                    mensajesDelBuzon.remove(numeroMensaje - 1);
                     reescribirArchivoMensajes(mensajesDelBuzon);
                     escritor.println("Mensaje borrado exitosamente.");
                 } else {
@@ -296,6 +299,34 @@ public class Servidor2025 {
                 } catch (IOException e) {
                     System.err.println("Error reescribiendo el archivo de mensajes: " + e.getMessage());
                 }
+            }
+        }
+
+        private void eliminarCuenta() throws IOException {
+            escritor.println("ADVERTENCIA: Vas a eliminar tu cuenta. Todos tus mensajes enviados serán borrados. Escribe 'confirmar' para continuar.");
+            String confirmacion = lector.readLine();
+            
+            if ("confirmar".equalsIgnoreCase(confirmacion)) {
+                List<String> mensajesRestantes = new ArrayList<>();
+                try (BufferedReader br = new BufferedReader(new FileReader(ARCHIVO_MENSAJES))) {
+                    String linea;
+                    while ((linea = br.readLine()) != null) {
+                        if (!linea.startsWith("de:" + this.usuarioAutenticado + ":")) {
+                            mensajesRestantes.add(linea);
+                        }
+                    }
+                    reescribirArchivoMensajes(mensajesRestantes);
+                } catch (IOException e) {
+                    System.err.println("No se pudo leer el archivo de mensajes para eliminar los de la cuenta.");
+                }
+
+                usuarios.remove(this.usuarioAutenticado);
+                guardarUsuarios();
+                
+                escritor.println("Tu cuenta y todos tus mensajes enviados han sido eliminados. Desconectando...");
+                this.usuarioAutenticado = null; 
+            } else {
+                escritor.println("Operación de eliminación de cuenta cancelada.");
             }
         }
         
