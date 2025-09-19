@@ -62,9 +62,9 @@ public class Servidor2025 {
         }
     }
     
-    private static synchronized void guardarMensaje(String mensaje) {
+    private static synchronized void guardarMensaje(String remitente, String destinatario, String mensaje) {
         try (PrintWriter pw = new PrintWriter(new FileWriter(ARCHIVO_MENSAJES, true))) {
-            pw.println(mensaje);
+            pw.println("de:" + remitente + ":para:" + destinatario + ":mensaje:" + mensaje);
         } catch (IOException e) {
             System.err.println("Error escribiendo en el archivo de mensajes: " + e.getMessage());
         }
@@ -78,7 +78,7 @@ public class Servidor2025 {
             if (escritorDestinatario != null) {
                 escritorDestinatario.println("[Privado de " + remitente + "]: " + mensaje);
             } else {
-                escritorRemitente.println("El usuario '" + destinatario + "' no está conectado.");
+                escritorRemitente.println("El usuario '" + destinatario + "' no está conectado. El mensaje se ha guardado en su buzón.");
             }
         }
     }
@@ -120,18 +120,21 @@ public class Servidor2025 {
                     synchronized (clientesConectados) {
                         clientesConectados.put(this.usuarioAutenticado, escritor);
                     }
-                    escritor.println("Escribe 'jugar' para adivinar el numero o 'chat' para enviar un mensaje.");
                     
                     String opcion;
+                    escritor.println("Escribe 'jugar' para adivinar el numero, 'chat' para enviar un mensaje, o 'buzon' para ver tus mensajes.");
                     while ((opcion = lector.readLine()) != null) {
                          if ("jugar".equalsIgnoreCase(opcion)) {
                             jugarJuego();
-                            escritor.println("Escribe 'jugar' para adivinar el numero o 'chat' para enviar un mensaje.");
+                            escritor.println("Escribe 'jugar', 'chat' o 'buzon'.");
                         } else if ("chat".equalsIgnoreCase(opcion)) {
                             manejarChat();
-                            escritor.println("Escribe 'jugar' para adivinar el numero o 'chat' para enviar un mensaje.");
+                            escritor.println("Escribe 'jugar', 'chat' o 'buzon'.");
+                        } else if ("buzon".equalsIgnoreCase(opcion)) {
+                            cargarBuzon();
+                            escritor.println("Escribe 'jugar', 'chat' o 'buzon'.");
                         } else {
-                            escritor.println("Opcion no reconocida. Escribe 'jugar' o 'chat'.");
+                            escritor.println("Opcion no reconocida. Escribe 'jugar', 'chat' o 'buzon'.");
                         }
                     }
                 }
@@ -218,40 +221,39 @@ public class Servidor2025 {
         }
         
         private void manejarChat() throws IOException {
-            escritor.println("Has entrado al chat privado.");
-            escritor.println("Escribe tus mensajes con formato 'destinatario: mensaje'. Escribe 'salir' para volver.");
+            escritor.println("Has entrado al chat. Escribe el nombre del destinatario o 'salir' para volver.");
+            String destinatario = lector.readLine();
+            if ("salir".equalsIgnoreCase(destinatario)) {
+                return;
+            }
 
-            String linea;
-            while ((linea = lector.readLine()) != null) {
-                if ("salir".equalsIgnoreCase(linea)) {
-                    break;
-                }
-                if (linea.contains(":")) {
-                    int idx = linea.indexOf(":");
-                    String destinatario = linea.substring(0, idx).trim();
-                    String mensaje = linea.substring(idx + 1).trim();
+            escritor.println("Escribe el mensaje:");
+            String mensaje = lector.readLine();
 
-                    if (!destinatario.isEmpty() && !mensaje.isEmpty()) {
-                        enviarMensajePrivado(this.usuarioAutenticado, destinatario, mensaje);
-                        guardarMensaje("[Privado " + this.usuarioAutenticado + " -> " + destinatario + "]: " + mensaje);
-                    } else {
-                        escritor.println("Formato incorrecto. Usa 'destinatario: mensaje'");
-                    }
-                } else {
-                    escritor.println("Formato incorrecto. Usa 'destinatario: mensaje'");
-                }
+            if (destinatario != null && !destinatario.isEmpty() && mensaje != null && !mensaje.isEmpty()) {
+                guardarMensaje(this.usuarioAutenticado, destinatario, mensaje);
+                enviarMensajePrivado(this.usuarioAutenticado, destinatario, mensaje);
+            } else {
+                escritor.println("Operación cancelada o datos incompletos.");
             }
         }
-        
-        private void cargarMensajesAnteriores() {
+
+        private void cargarBuzon() throws IOException {
             try (BufferedReader br = new BufferedReader(new FileReader(ARCHIVO_MENSAJES))) {
                 String linea;
-                escritor.println("--- Historial del Chat ---");
+                int contador = 1;
+                escritor.println("--- Buzón de " + this.usuarioAutenticado + " ---");
                 while ((linea = br.readLine()) != null) {
-                    escritor.println(linea);
+                    if (linea.contains(":para:" + this.usuarioAutenticado + ":")) {
+                        String[] partes = linea.split(":mensaje:");
+                        String mensaje = partes[1];
+                        escritor.println(contador + ". " + mensaje);
+                        contador++;
+                    }
                 }
                 escritor.println("-------------------------");
             } catch (IOException e) {
+                escritor.println("No hay mensajes en tu buzón.");
             }
         }
     }
