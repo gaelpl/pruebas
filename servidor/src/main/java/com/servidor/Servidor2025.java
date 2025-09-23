@@ -123,7 +123,7 @@ public class Servidor2025 {
                     }
 
                     String opcion;
-                    escritor.println("Escribe 'jugar', 'chat', 'buzon', 'borrar', 'eliminar' o 'cerrar'.");
+                    escritor.println("Escribe 'jugar', 'chat', 'buzon', 'borrar', 'usuarios', 'eliminar' o 'cerrar'.");
                     while ((opcion = lector.readLine()) != null) {
                         if ("jugar".equalsIgnoreCase(opcion)) {
                             jugarJuego();
@@ -133,6 +133,8 @@ public class Servidor2025 {
                             cargarBuzon();
                         } else if ("borrar".equalsIgnoreCase(opcion)) {
                             borrarMensaje();
+                        } else if ("usuarios".equalsIgnoreCase(opcion)) {
+                            mostrarUsuarios();
                         } else if ("eliminar".equalsIgnoreCase(opcion)) {
                             eliminarCuenta();
                             break;
@@ -143,6 +145,7 @@ public class Servidor2025 {
                             escritor.println(
                                     "Opcion no reconocida. Escribe 'jugar', 'chat', 'buzon', 'borrar', 'eliminar' o 'cerrar'.");
                         }
+                        escritor.println("Escribe 'jugar', 'chat', 'buzon', 'borrar', 'eliminar' o 'cerrar'.");
                     }
                 }
 
@@ -357,6 +360,13 @@ public class Servidor2025 {
                 escritor.println("-------------------------");
             } catch (IOException e) {
                 escritor.println("No hay mensajes en tu buzón.");
+            }
+        }
+
+        private void mostrarUsuarios() {
+            escritor.println("usuarios existentes:");
+            for (String usuario : usuarios.keySet()) {
+                escritor.println(usuario);
             }
         }
     }
