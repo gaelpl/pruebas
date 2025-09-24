@@ -15,11 +15,11 @@ public class Servidor2025 {
     private static Map<String, String> usuarios = cargarUsuarios();
     private static final String ARCHIVO_MENSAJES = "mensajes.txt";
     private static Map<String, PrintWriter> clientesConectados = new HashMap<>();
+    private static Map<String, List<String>> usuariosBloqueados = new HashMap<>();
 
     public static void main(String[] args) {
         try (ServerSocket servidor = new ServerSocket(8080)) {
             System.out.println("Servidor iniciado. Esperando conexión...");
-
             while (true) {
                 Socket cliente = servidor.accept();
                 System.out.println("Cliente conectado desde: " + cliente.getInetAddress().getHostAddress());
@@ -121,9 +121,9 @@ public class Servidor2025 {
                     synchronized (clientesConectados) {
                         clientesConectados.put(this.usuarioAutenticado, escritor);
                     }
-
+                    escritor.println(
+                            "Escribe 'jugar', 'chat', 'buzon', 'borrar', 'usuarios', 'eliminar', 'bloquear' o 'cerrar'.");
                     String opcion;
-                    escritor.println("Escribe 'jugar', 'chat', 'buzon', 'borrar', 'usuarios', 'eliminar' o 'cerrar'.");
                     while ((opcion = lector.readLine()) != null) {
                         if ("jugar".equalsIgnoreCase(opcion)) {
                             jugarJuego();
@@ -138,14 +138,17 @@ public class Servidor2025 {
                         } else if ("eliminar".equalsIgnoreCase(opcion)) {
                             eliminarCuenta();
                             break;
+                        } else if ("bloquear".equalsIgnoreCase(opcion)) {
+                            manejarBloqueo(); 
                         } else if ("cerrar".equalsIgnoreCase(opcion)) {
                             cerrarSesion();
                             break;
                         } else {
                             escritor.println(
-                                    "Opcion no reconocida. Escribe 'jugar', 'chat', 'buzon', 'borrar', 'eliminar' o 'cerrar'.");
+                                    "Opcion no reconocida. Escribe 'jugar', 'chat', 'buzon', 'borrar', 'usuarios', 'eliminar', 'bloquear' o 'cerrar'.");
                         }
-                        escritor.println("Escribe 'jugar', 'chat', 'buzon', 'borrar', 'eliminar' o 'cerrar'.");
+                        escritor.println(
+                                "Escribe 'jugar', 'chat', 'buzon', 'borrar', 'usuarios', 'eliminar', 'bloquear' o 'cerrar'.");
                     }
                 }
 
@@ -364,9 +367,33 @@ public class Servidor2025 {
         }
 
         private void mostrarUsuarios() {
-            escritor.println("usuarios existentes:");
+            escritor.println("Usuarios existentes:");
             for (String usuario : usuarios.keySet()) {
                 escritor.println(usuario);
+            }
+        }
+        private void manejarBloqueo() throws IOException {
+            escritor.println("Escribe el nombre de usuario que quieres bloquear o 'salir' para cancelar.");
+            String usuarioABloquear = lector.readLine();
+            if ("salir".equalsIgnoreCase(usuarioABloquear)) {
+                return;
+            }
+            if (!usuarios.containsKey(usuarioABloquear)) {
+                escritor.println("El usuario no existe.");
+                return;
+            }
+            if (usuarioABloquear.equalsIgnoreCase(this.usuarioAutenticado)) {
+                escritor.println("No puedes bloquearte a ti mismo.");
+                return;
+            }
+            if (!usuariosBloqueados.containsKey(this.usuarioAutenticado)) {
+                usuariosBloqueados.put(this.usuarioAutenticado, new ArrayList<>());
+            }
+            if (usuariosBloqueados.get(this.usuarioAutenticado).contains(usuarioABloquear)) {
+                escritor.println("El usuario " + usuarioABloquear + " ya está en tu lista de bloqueados.");
+            } else {
+                usuariosBloqueados.get(this.usuarioAutenticado).add(usuarioABloquear);
+                escritor.println("Usuario " + usuarioABloquear + " bloqueado exitosamente.");
             }
         }
     }
