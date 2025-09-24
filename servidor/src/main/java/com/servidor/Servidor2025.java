@@ -77,7 +77,7 @@ public class Servidor2025 {
 
             if (escritorDestinatario != null) {
                 escritorDestinatario.println("[Privado de " + remitente + "]: " + mensaje);
-            } else {
+            } else if (escritorRemitente != null) {
                 escritorRemitente.println(
                         "El usuario '" + destinatario + "' no está conectado. El mensaje se ha guardado en su buzón.");
             }
@@ -139,7 +139,7 @@ public class Servidor2025 {
                             eliminarCuenta();
                             break;
                         } else if ("bloquear".equalsIgnoreCase(opcion)) {
-                            manejarBloqueo(); 
+                            manejarBloqueo();
                         } else if ("cerrar".equalsIgnoreCase(opcion)) {
                             cerrarSesion();
                             break;
@@ -241,6 +241,15 @@ public class Servidor2025 {
             escritor.println("Has entrado al chat. Escribe el nombre del destinatario o 'salir' para volver.");
             String destinatario = lector.readLine();
             if ("salir".equalsIgnoreCase(destinatario)) {
+                return;
+            }
+
+            if (usuariosBloqueados.containsKey(destinatario) && usuariosBloqueados.get(destinatario).contains(this.usuarioAutenticado)) {
+                escritor.println("No puedes enviar mensajes a este usuario. Te ha bloqueado.");
+                return;
+            }
+            if (usuariosBloqueados.containsKey(this.usuarioAutenticado) && usuariosBloqueados.get(this.usuarioAutenticado).contains(destinatario)) {
+                escritor.println("No puedes enviar mensajes a un usuario que has bloqueado.");
                 return;
             }
 
@@ -372,6 +381,7 @@ public class Servidor2025 {
                 escritor.println(usuario);
             }
         }
+
         private void manejarBloqueo() throws IOException {
             escritor.println("Escribe el nombre de usuario que quieres bloquear o 'salir' para cancelar.");
             String usuarioABloquear = lector.readLine();
