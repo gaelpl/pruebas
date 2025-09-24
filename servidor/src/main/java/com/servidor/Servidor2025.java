@@ -15,11 +15,11 @@ public class Servidor2025 {
     private static Map<String, String> usuarios = cargarUsuarios();
     private static final String ARCHIVO_MENSAJES = "mensajes.txt";
     private static Map<String, PrintWriter> clientesConectados = new HashMap<>();
+    private static Map<String, List<String>> usuariosBloqueados = new HashMap<>();
 
     public static void main(String[] args) {
         try (ServerSocket servidor = new ServerSocket(8080)) {
             System.out.println("Servidor iniciado. Esperando conexión...");
-
             while (true) {
                 Socket cliente = servidor.accept();
                 System.out.println("Cliente conectado desde: " + cliente.getInetAddress().getHostAddress());
@@ -33,7 +33,7 @@ public class Servidor2025 {
     private static Map<String, String> cargarUsuarios() {
         Map<String, String> usuariosCargados = new HashMap<>();
         File archivo = new File(ARCHIVO_USUARIOS);
-        
+
         if (!archivo.exists()) {
             return usuariosCargados;
         }
@@ -61,7 +61,7 @@ public class Servidor2025 {
             System.err.println("Error escribiendo archivo de usuarios: " + e.getMessage());
         }
     }
-    
+
     private static synchronized void guardarMensaje(String remitente, String destinatario, String mensaje) {
         try (PrintWriter pw = new PrintWriter(new FileWriter(ARCHIVO_MENSAJES, true))) {
             pw.println("de:" + remitente + ":para:" + destinatario + ":mensaje:" + mensaje);
@@ -77,8 +77,9 @@ public class Servidor2025 {
 
             if (escritorDestinatario != null) {
                 escritorDestinatario.println("[Privado de " + remitente + "]: " + mensaje);
-            } else {
-                escritorRemitente.println("El usuario '" + destinatario + "' no está conectado. El mensaje se ha guardado en su buzón.");
+            } else if (escritorRemitente != null) {
+                escritorRemitente.println(
+                        "El usuario '" + destinatario + "' no está conectado. El mensaje se ha guardado en su buzón.");
             }
         }
     }
@@ -97,7 +98,7 @@ public class Servidor2025 {
             try {
                 escritor = new PrintWriter(cliente.getOutputStream(), true);
                 lector = new BufferedReader(new InputStreamReader(cliente.getInputStream()));
-                
+
                 boolean autenticado = false;
                 while (!autenticado) {
                     escritor.println("Bienvenido. Escribe 'login' para iniciar sesion o 'register' para crear cuenta.");
@@ -106,7 +107,7 @@ public class Servidor2025 {
                     if (accion == null) {
                         break;
                     }
-                    
+
                     if ("login".equalsIgnoreCase(accion)) {
                         autenticado = manejarLogin();
                     } else if ("register".equalsIgnoreCase(accion)) {
@@ -115,36 +116,42 @@ public class Servidor2025 {
                         escritor.println("Accion no reconocida. Intenta de nuevo.");
                     }
                 }
-                
+
                 if (autenticado) {
                     synchronized (clientesConectados) {
                         clientesConectados.put(this.usuarioAutenticado, escritor);
                     }
-                    
+                    escritor.println(
+                            "Escribe 'jugar', 'chat', 'buzon', 'borrar', 'usuarios', 'eliminar', 'bloquear' o 'cerrar'.");
                     String opcion;
-                    escritor.println("Escribe 'jugar', 'chat', 'buzon', 'borrar' o 'eliminar'.");
                     while ((opcion = lector.readLine()) != null) {
-                         if ("jugar".equalsIgnoreCase(opcion)) {
+                        if ("jugar".equalsIgnoreCase(opcion)) {
                             jugarJuego();
-                            escritor.println("Escribe 'jugar', 'chat', 'buzon', 'borrar' o 'eliminar'.");
                         } else if ("chat".equalsIgnoreCase(opcion)) {
                             manejarChat();
-                            escritor.println("Escribe 'jugar', 'chat', 'buzon', 'borrar' o 'eliminar'.");
                         } else if ("buzon".equalsIgnoreCase(opcion)) {
                             cargarBuzon();
-                            escritor.println("Escribe 'jugar', 'chat', 'buzon', 'borrar' o 'eliminar'.");
                         } else if ("borrar".equalsIgnoreCase(opcion)) {
                             borrarMensaje();
-                            escritor.println("Escribe 'jugar', 'chat', 'buzon', 'borrar' o 'eliminar'.");
+                        } else if ("usuarios".equalsIgnoreCase(opcion)) {
+                            mostrarUsuarios();
                         } else if ("eliminar".equalsIgnoreCase(opcion)) {
                             eliminarCuenta();
-                            break; 
+                            break;
+                        } else if ("bloquear".equalsIgnoreCase(opcion)) {
+                            manejarBloqueo();
+                        } else if ("cerrar".equalsIgnoreCase(opcion)) {
+                            cerrarSesion();
+                            break;
                         } else {
-                            escritor.println("Opcion no reconocida. Escribe 'jugar', 'chat', 'buzon', 'borrar' o 'eliminar'.");
+                            escritor.println(
+                                    "Opcion no reconocida. Escribe 'jugar', 'chat', 'buzon', 'borrar', 'usuarios', 'eliminar', 'bloquear' o 'cerrar'.");
                         }
+                        escritor.println(
+                                "Escribe 'jugar', 'chat', 'buzon', 'borrar', 'usuarios', 'eliminar', 'bloquear' o 'cerrar'.");
                     }
                 }
-                
+
             } catch (IOException e) {
                 System.err.println("Error en la comunicacion con el cliente: " + e.getMessage());
             } finally {
@@ -154,15 +161,18 @@ public class Servidor2025 {
                     }
                 }
                 try {
-                    if (lector != null) lector.close();
-                    if (escritor != null) escritor.close();
-                    if (cliente != null) cliente.close();
+                    if (lector != null)
+                        lector.close();
+                    if (escritor != null)
+                        escritor.close();
+                    if (cliente != null)
+                        cliente.close();
                 } catch (IOException e) {
                     System.err.println("Error al cerrar recursos del cliente: " + e.getMessage());
                 }
             }
         }
-        
+
         private boolean manejarLogin() throws IOException {
             escritor.println("Introduce tu usuario:");
             String usuario = lector.readLine();
@@ -193,7 +203,7 @@ public class Servidor2025 {
                 escritor.println("Registro exitoso. Ahora puedes iniciar sesion.");
             }
         }
-        
+
         private void jugarJuego() throws IOException {
             Random random = new Random();
             int numeroSecreto = random.nextInt(10) + 1;
@@ -201,14 +211,14 @@ public class Servidor2025 {
             boolean adivinado = false;
 
             escritor.println("¡Adivina el numero! He generado un numero entre 1 y 10.");
-            
+
             while (!adivinado) {
                 try {
                     String intentoStr = lector.readLine();
                     if (intentoStr == null) {
                         break;
                     }
-                    
+
                     int intento = Integer.parseInt(intentoStr);
                     intentos++;
 
@@ -217,7 +227,8 @@ public class Servidor2025 {
                     } else if (intento > numeroSecreto) {
                         escritor.println("El numero es menor.");
                     } else {
-                        escritor.println("¡Correcto! Adivinaste el numero " + numeroSecreto + " en " + intentos + " intentos.");
+                        escritor.println(
+                                "¡Correcto! Adivinaste el numero " + numeroSecreto + " en " + intentos + " intentos.");
                         adivinado = true;
                     }
                 } catch (NumberFormatException e) {
@@ -225,11 +236,20 @@ public class Servidor2025 {
                 }
             }
         }
-        
+
         private void manejarChat() throws IOException {
             escritor.println("Has entrado al chat. Escribe el nombre del destinatario o 'salir' para volver.");
             String destinatario = lector.readLine();
             if ("salir".equalsIgnoreCase(destinatario)) {
+                return;
+            }
+
+            if (usuariosBloqueados.containsKey(destinatario) && usuariosBloqueados.get(destinatario).contains(this.usuarioAutenticado)) {
+                escritor.println("No puedes enviar mensajes a este usuario. Te ha bloqueado.");
+                return;
+            }
+            if (usuariosBloqueados.containsKey(this.usuarioAutenticado) && usuariosBloqueados.get(this.usuarioAutenticado).contains(destinatario)) {
+                escritor.println("No puedes enviar mensajes a un usuario que has bloqueado.");
                 return;
             }
 
@@ -275,7 +295,7 @@ public class Servidor2025 {
             if ("salir".equalsIgnoreCase(opcion)) {
                 return;
             }
-            
+
             try {
                 int numeroMensaje = Integer.parseInt(opcion);
                 if (numeroMensaje > 0 && numeroMensaje <= mensajesDelBuzon.size()) {
@@ -303,9 +323,10 @@ public class Servidor2025 {
         }
 
         private void eliminarCuenta() throws IOException {
-            escritor.println("ADVERTENCIA: Vas a eliminar tu cuenta. Todos tus mensajes enviados serán borrados. Escribe 'confirmar' para continuar.");
+            escritor.println(
+                    "ADVERTENCIA: Vas a eliminar tu cuenta. Todos tus mensajes enviados serán borrados. Escribe 'confirmar' para continuar.");
             String confirmacion = lector.readLine();
-            
+
             if ("confirmar".equalsIgnoreCase(confirmacion)) {
                 List<String> mensajesRestantes = new ArrayList<>();
                 try (BufferedReader br = new BufferedReader(new FileReader(ARCHIVO_MENSAJES))) {
@@ -322,14 +343,19 @@ public class Servidor2025 {
 
                 usuarios.remove(this.usuarioAutenticado);
                 guardarUsuarios();
-                
+
                 escritor.println("Tu cuenta y todos tus mensajes enviados han sido eliminados. Desconectando...");
-                this.usuarioAutenticado = null; 
+                this.usuarioAutenticado = null;
             } else {
                 escritor.println("Operación de eliminación de cuenta cancelada.");
             }
         }
-        
+
+        private void cerrarSesion() {
+            escritor.println("Sesión cerrada. Puedes volver a iniciar sesión.");
+            this.usuarioAutenticado = null;
+        }
+
         private void cargarBuzon() throws IOException {
             try (BufferedReader br = new BufferedReader(new FileReader(ARCHIVO_MENSAJES))) {
                 String linea;
@@ -346,6 +372,38 @@ public class Servidor2025 {
                 escritor.println("-------------------------");
             } catch (IOException e) {
                 escritor.println("No hay mensajes en tu buzón.");
+            }
+        }
+
+        private void mostrarUsuarios() {
+            escritor.println("Usuarios existentes:");
+            for (String usuario : usuarios.keySet()) {
+                escritor.println(usuario);
+            }
+        }
+
+        private void manejarBloqueo() throws IOException {
+            escritor.println("Escribe el nombre de usuario que quieres bloquear o 'salir' para cancelar.");
+            String usuarioABloquear = lector.readLine();
+            if ("salir".equalsIgnoreCase(usuarioABloquear)) {
+                return;
+            }
+            if (!usuarios.containsKey(usuarioABloquear)) {
+                escritor.println("El usuario no existe.");
+                return;
+            }
+            if (usuarioABloquear.equalsIgnoreCase(this.usuarioAutenticado)) {
+                escritor.println("No puedes bloquearte a ti mismo.");
+                return;
+            }
+            if (!usuariosBloqueados.containsKey(this.usuarioAutenticado)) {
+                usuariosBloqueados.put(this.usuarioAutenticado, new ArrayList<>());
+            }
+            if (usuariosBloqueados.get(this.usuarioAutenticado).contains(usuarioABloquear)) {
+                escritor.println("El usuario " + usuarioABloquear + " ya está en tu lista de bloqueados.");
+            } else {
+                usuariosBloqueados.get(this.usuarioAutenticado).add(usuarioABloquear);
+                escritor.println("Usuario " + usuarioABloquear + " bloqueado exitosamente.");
             }
         }
     }

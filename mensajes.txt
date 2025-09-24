@@ -1,0 +1,25 @@
+de:login:para:gael:mensaje:hola
+de:login:para:si:mensaje:chat
+de:login:para:nose:mensaje:chat
+de:login:para:arriba yo mi apa y la chona:mensaje:chat
+de:login:para:hello:mensaje:chat
+de:login:para:fifa:mensaje:chat
+de:login:para:gael:mensaje:fifa
+de:login:para:gael:mensaje:si
+de:login:para:gael:mensaje:arriba 
+de:login:para:gael:mensaje:yo
+de:login:para:gael:mensaje:mi
+de:login:para:gael:mensaje:apa
+de:login:para:gael:mensaje:y
+de:login:para:gael:mensaje:la
+de:login:para:gael:mensaje:chona
+de:login:para:gael:mensaje:nose
+de:login:para:gael:mensaje:hay
+de:login:para:gael:mensaje:como
+de:login:para:gael:mensaje:el
+de:login:para:gael:mensaje:mar 
+de:login:para:gael:mensaje:azul
+de:login:para:gael:mensaje:vamos
+de:login:para:gael:mensaje:el alfredo se pego
+de:login:para:gael:mensaje:y se pego en la chompa
+de:login:para:gael:mensaje:XD
