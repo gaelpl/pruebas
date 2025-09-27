@@ -16,6 +16,7 @@ public class Servidor2025 {
     private static final String ARCHIVO_MENSAJES = "mensajes.txt";
     private static Map<String, PrintWriter> clientesConectados = new HashMap<>();
     private static Map<String, List<String>> usuariosBloqueados = new HashMap<>();
+    private static Map<String, String> transferenciaPendiente = new HashMap<>();
 
     public static void main(String[] args) {
         try (ServerSocket servidor = new ServerSocket(8080)) {
@@ -83,7 +84,38 @@ public class Servidor2025 {
             }
         }
     }
-
+    
+    private static void manejarRespuestaPermiso(String respuestaCompleta) throws IOException {
+        String[] partes = respuestaCompleta.split(":");
+        String accion = partes[1]; 
+        String usuarioRespuesta = partes[2]; 
+        String archivo = partes[3];
+        
+        if (transferenciaPendiente.containsKey(usuarioRespuesta)) {
+            String datosSolicitud = transferenciaPendiente.get(usuarioRespuesta);
+            String[] datos = datosSolicitud.split(":");
+            String usuarioSolicitante = datos[0];           
+            PrintWriter escritorSolicitante = clientesConectados.get(usuarioSolicitante);
+            
+            if (escritorSolicitante == null) {
+                transferenciaPendiente.remove(usuarioRespuesta);
+                return;
+            }
+            
+            if ("ACEPTAR".equalsIgnoreCase(accion)) {
+                escritorSolicitante.println("Permiso concedido. Esperando datos del archivo '" + archivo + "'...");
+                PrintWriter escritorOrigen = clientesConectados.get(usuarioRespuesta);
+                if (escritorOrigen != null) {
+                    escritorOrigen.println("_COMANDO_:TRANSFERIR_DATOS:" + archivo + ":" + usuarioSolicitante);
+                }
+                
+            } else if ("DENEGAR".equalsIgnoreCase(accion)) {
+                escritorSolicitante.println("El usuario '" + usuarioRespuesta + "' denegó la transferencia del archivo " + archivo + ".");
+            }
+            transferenciaPendiente.remove(usuarioRespuesta);
+        }
+    }
+    
     static class ManejadorCliente implements Runnable {
         private Socket cliente;
         private PrintWriter escritor;
@@ -122,7 +154,7 @@ public class Servidor2025 {
                         clientesConectados.put(this.usuarioAutenticado, escritor);
                     }
                     escritor.println(
-                            "Escribe 'jugar', 'chat', 'buzon', 'borrar', 'usuarios', 'eliminar', 'bloquear' o 'cerrar'.");
+                            "Escribe 'jugar', 'chat', 'buzon', 'borrar', 'usuarios', 'eliminar', 'bloquear', 'transferir' o 'cerrar'.");
                     String opcion;
                     while ((opcion = lector.readLine()) != null) {
                         if ("jugar".equalsIgnoreCase(opcion)) {
@@ -140,15 +172,17 @@ public class Servidor2025 {
                             break;
                         } else if ("bloquear".equalsIgnoreCase(opcion)) {
                             manejarBloqueo();
+                        } else if ("transferir".equalsIgnoreCase(opcion)) {
+                            manejarTransferencia(); 
                         } else if ("cerrar".equalsIgnoreCase(opcion)) {
                             cerrarSesion();
                             break;
                         } else {
                             escritor.println(
-                                    "Opcion no reconocida. Escribe 'jugar', 'chat', 'buzon', 'borrar', 'usuarios', 'eliminar', 'bloquear' o 'cerrar'.");
+                                    "Opcion no reconocida. Escribe 'jugar', 'chat', 'buzon', 'borrar', 'usuarios', 'eliminar', 'bloquear', 'transferir' o 'cerrar'.");
                         }
                         escritor.println(
-                                "Escribe 'jugar', 'chat', 'buzon', 'borrar', 'usuarios', 'eliminar', 'bloquear' o 'cerrar'.");
+                                "Escribe 'jugar', 'chat', 'buzon', 'borrar', 'usuarios', 'eliminar', 'bloquear', 'transferir' o 'cerrar'.");
                     }
                 }
 
@@ -404,6 +438,33 @@ public class Servidor2025 {
             } else {
                 usuariosBloqueados.get(this.usuarioAutenticado).add(usuarioABloquear);
                 escritor.println("Usuario " + usuarioABloquear + " bloqueado exitosamente.");
+            }
+        }
+
+        private void manejarTransferencia() throws IOException {
+            escritor.println("Escribe el usuario y nombre del archivo (Ej: usuarioB:archivo.txt) o 'salir'.");
+            String peticion = lector.readLine();
+            if ("salir".equalsIgnoreCase(peticion)) return;
+
+            if (peticion.contains(":")) {
+                String[] partes = peticion.split(":");
+                String usuarioOrigen = partes[0].trim();
+                String nombreArchivo = partes[1].trim();
+
+                synchronized (clientesConectados) {
+                    PrintWriter escritorOrigen = clientesConectados.get(usuarioOrigen);
+                    PrintWriter escritorRemitente = clientesConectados.get(this.usuarioAutenticado);
+
+                    if (escritorOrigen != null) {
+                        transferenciaPendiente.put(usuarioOrigen, this.usuarioAutenticado + ":" + nombreArchivo);
+                        escritorOrigen.println("_COMANDO_:TRANSFERIR_PREGUNTA:" + nombreArchivo + ":" + this.usuarioAutenticado);
+                        escritorRemitente.println("Solicitud de permiso enviada a '" + usuarioOrigen + "'. Esperando respuesta...");
+                    } else {
+                        escritorRemitente.println("El usuario '" + usuarioOrigen + "' no está conectado. Transferencia cancelada.");
+                    }
+                }
+            } else {
+                escritor.println("Formato incorrecto. Usa 'usuario:archivo.txt'.");
             }
         }
     }
