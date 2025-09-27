@@ -15,7 +15,7 @@ public class Servidor2025 {
     private static Map<String, String> usuarios = cargarUsuarios();
     private static final String ARCHIVO_MENSAJES = "mensajes.txt";
     private static Map<String, PrintWriter> clientesConectados = new HashMap<>();
-    private static Map<String, List<String>> usuariosBloqueados = new HashMap<>();
+    private static Map<String, List<String>> usuariosBloqueados = new HashMap<>();   
     private static Map<String, String> transferenciaPendiente = new HashMap<>();
 
     public static void main(String[] args) {
@@ -85,17 +85,15 @@ public class Servidor2025 {
         }
     }
     
-    private static void manejarRespuestaPermiso(String respuestaCompleta) throws IOException {
-        String[] partes = respuestaCompleta.split(":");
-        String accion = partes[1]; 
-        String usuarioRespuesta = partes[2]; 
-        String archivo = partes[3];
-        
+    private static void manejarRespuestaPermiso(String usuarioRespuesta, String accion, String archivoRespuesta) {
         if (transferenciaPendiente.containsKey(usuarioRespuesta)) {
             String datosSolicitud = transferenciaPendiente.get(usuarioRespuesta);
-            String[] datos = datosSolicitud.split(":");
-            String usuarioSolicitante = datos[0];           
+            String[] datos = datosSolicitud.split(":"); 
+            String usuarioSolicitante = datos[0];
+            String nombreArchivo = datos[1];
+            
             PrintWriter escritorSolicitante = clientesConectados.get(usuarioSolicitante);
+            PrintWriter escritorOrigen = clientesConectados.get(usuarioRespuesta);
             
             if (escritorSolicitante == null) {
                 transferenciaPendiente.remove(usuarioRespuesta);
@@ -103,19 +101,41 @@ public class Servidor2025 {
             }
             
             if ("ACEPTAR".equalsIgnoreCase(accion)) {
-                escritorSolicitante.println("Permiso concedido. Esperando datos del archivo '" + archivo + "'...");
-                PrintWriter escritorOrigen = clientesConectados.get(usuarioRespuesta);
-                if (escritorOrigen != null) {
-                    escritorOrigen.println("_COMANDO_:TRANSFERIR_DATOS:" + archivo + ":" + usuarioSolicitante);
-                }
+                escritorSolicitante.println("Permiso concedido por '" + usuarioRespuesta + "'. Iniciando envío de datos...");
                 
+                if (escritorOrigen != null) {
+                    escritorOrigen.println("_COMANDO_:TRANSFERIR_DATOS:" + nombreArchivo + ":" + usuarioSolicitante);
+                }               
             } else if ("DENEGAR".equalsIgnoreCase(accion)) {
-                escritorSolicitante.println("El usuario '" + usuarioRespuesta + "' denegó la transferencia del archivo " + archivo + ".");
-            }
+                escritorSolicitante.println("El usuario '" + usuarioRespuesta + "' denegó la transferencia del archivo " + nombreArchivo + ".");
+            }           
             transferenciaPendiente.remove(usuarioRespuesta);
         }
     }
     
+    private static void reenviarDatos(String lineaCompleta) {
+        String[] partes = lineaCompleta.split(":"); 
+        String usuarioOrigen = partes[2]; 
+        String solicitante = partes[3]; 
+        String datos = partes[4]; 
+
+        PrintWriter escritorSolicitante = clientesConectados.get(solicitante);
+        if (escritorSolicitante != null) {
+            escritorSolicitante.println("_ARCHIVO_CONTENIDO:" + datos);
+        }
+    }
+    
+    private static void manejarFinTransferencia(String lineaCompleta) {
+        String[] partes = lineaCompleta.split(":"); 
+        String solicitante = partes[2];
+        String nombreArchivo = partes[3];
+
+        PrintWriter escritorSolicitante = clientesConectados.get(solicitante);
+        if (escritorSolicitante != null) {
+             escritorSolicitante.println("_ARCHIVO_FINALIZADO:Escribe 'GUARDAR:" + nombreArchivo + "' para guardarlo.");
+        }
+    }
+
     static class ManejadorCliente implements Runnable {
         private Socket cliente;
         private PrintWriter escritor;
@@ -157,6 +177,23 @@ public class Servidor2025 {
                             "Escribe 'jugar', 'chat', 'buzon', 'borrar', 'usuarios', 'eliminar', 'bloquear', 'transferir' o 'cerrar'.");
                     String opcion;
                     while ((opcion = lector.readLine()) != null) {
+                        
+                        if (opcion.startsWith("_RESPUESTA_PERMISO:")) {
+                            String[] partes = opcion.split(":"); 
+                            manejarRespuestaPermiso(this.usuarioAutenticado, partes[1], partes[2]);
+                            continue; 
+                        }
+                        if (opcion.startsWith("_DATOS_ARCHIVO:")) {
+                            reenviarDatos(opcion);
+                            continue;
+                        }
+                        if (opcion.startsWith("_FIN_ARCHIVO_:")) {
+                            manejarFinTransferencia(opcion);
+                            continue;
+                        }                       
+                        if (opcion.startsWith("GUARDAR:")) {
+                            escritor.println("Archivo guardado. Volviendo al menú.");
+                        }
                         if ("jugar".equalsIgnoreCase(opcion)) {
                             jugarJuego();
                         } else if ("chat".equalsIgnoreCase(opcion)) {
@@ -456,7 +493,7 @@ public class Servidor2025 {
                     PrintWriter escritorRemitente = clientesConectados.get(this.usuarioAutenticado);
 
                     if (escritorOrigen != null) {
-                        transferenciaPendiente.put(usuarioOrigen, this.usuarioAutenticado + ":" + nombreArchivo);
+                        transferenciaPendiente.put(usuarioOrigen, this.usuarioAutenticado + ":" + nombreArchivo);           
                         escritorOrigen.println("_COMANDO_:TRANSFERIR_PREGUNTA:" + nombreArchivo + ":" + this.usuarioAutenticado);
                         escritorRemitente.println("Solicitud de permiso enviada a '" + usuarioOrigen + "'. Esperando respuesta...");
                     } else {
