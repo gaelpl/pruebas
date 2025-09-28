@@ -2,6 +2,7 @@ package com.cliente.com.cliente;
 
 import java.io.*;
 import java.net.Socket;
+import java.util.regex.Pattern;
 
 public class Cliente2025 {
 
@@ -16,7 +17,7 @@ public class Cliente2025 {
                 try {
                     while ((lineaServidor = lectorServidor.readLine()) != null) {
                         if (lineaServidor.startsWith("_COMANDO_:")) {
-                            String[] partes = lineaServidor.split(":");
+                            String[] partes = lineaServidor.split(Pattern.quote(":"));
                             String comando = partes[1];
                             String archivo = partes[2];
                             String solicitante = partes[3];
@@ -27,8 +28,8 @@ public class Cliente2025 {
                                 
                                 escritorServidor.println("_RESPUESTA_LISTAR_ARCHIVOS:" + solicitante);
                                 if (archivos != null && archivos.length > 0) {
-                                    for (File file : archivos) {
-                                        escritorServidor.println(file.getName());
+                                    for (File f : archivos) {
+                                        escritorServidor.println(f.getName());
                                     }
                                 }
                                 escritorServidor.println("_FIN_LISTA_");
@@ -38,7 +39,24 @@ public class Cliente2025 {
                                 System.out.println("\n** El usuario '" + solicitante + "' quiere el archivo '" + archivo + "'. **");
                                 System.out.print("¿Permites la transferencia? (si/no): ");
                             }
-                            
+                            else if ("TRANSFERIR_DATOS".equalsIgnoreCase(comando)) {
+                                String nombreArchivo = partes[2];
+                                String solicitanteOrigen = partes[3];
+                                
+                                System.out.println("\n--- Iniciando envío de '" + nombreArchivo + "' a " + solicitanteOrigen + " ---");
+                                
+                                try (BufferedReader br = new BufferedReader(new FileReader(nombreArchivo))) {
+                                    String linea;
+                                    while ((linea = br.readLine()) != null) {
+                                        escritorServidor.println("_DATOS_ARCHIVO:Origen:" + solicitanteOrigen + ":" + linea);
+                                    }
+                                    escritorServidor.println("_FIN_ARCHIVO_:Origen:" + solicitanteOrigen + ":" + nombreArchivo);
+                                    System.out.println("--- Envío de archivo finalizado ---");
+
+                                } catch (FileNotFoundException e) {
+                                    System.out.println("ERROR: Archivo '" + nombreArchivo + "' no encontrado en el directorio.");
+                                }
+                            }
                         } 
                         else if (lineaServidor.startsWith("_RESPUESTA_PERMISO:")) {
                             System.out.println("Servidor: " + lineaServidor);
@@ -57,7 +75,7 @@ public class Cliente2025 {
             while ((comando = teclado.readLine()) != null) {
                 if ("si".equalsIgnoreCase(comando) || "no".equalsIgnoreCase(comando)) {
                     String respuesta = ("si".equalsIgnoreCase(comando) ? "ACEPTAR" : "DENEGAR");
-                    escritorServidor.println("_RESPUESTA_PERMISO:" + respuesta); 
+                    escritorServidor.println("_RESPUESTA_PERMISO:" + respuesta + ":" + comando); 
                 } else {
                     escritorServidor.println(comando);
                 }
