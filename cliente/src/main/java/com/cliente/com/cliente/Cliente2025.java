@@ -1,4 +1,4 @@
-package com.cliente.com.cliente;
+package com.cliente;
 
 import java.io.*;
 import java.net.Socket;
@@ -24,14 +24,14 @@ public class Cliente2025 {
                         if (lineaServidor.startsWith("_COMANDO_:")) {
                             String[] partes = lineaServidor.split(Pattern.quote(":"));
                             String comando = partes[1];
-                            String archivo = partes[2];
-                            String solicitante = partes[3];
+                            String solicitante = partes[2]; 
+                            String archivo = partes.length > 3 ? partes[2] : null;
                             
                             if ("LISTAR_ARCHIVOS".equalsIgnoreCase(comando)) {
                                 File directorio = new File(".");
                                 File[] archivos = directorio.listFiles((dir, nombre) -> nombre.toLowerCase().endsWith(".txt"));
                                 
-                                escritorServidor.println("_RESPUESTA_LISTAR_ARCHIVOS:" + solicitante);
+                                escritorServidor.println("_RESPUESTA_LISTAR_ARCHIVOS:" + solicitante);                                
                                 if (archivos != null && archivos.length > 0) {
                                     for (File f : archivos) {
                                         escritorServidor.println(f.getName());
@@ -65,7 +65,7 @@ public class Cliente2025 {
 
                         } 
                         else if (lineaServidor.startsWith("_ARCHIVO_CONTENIDO:")) {
-                            String[] partes = lineaServidor.split(":", 2); 
+                            String[] partes = lineaServidor.split(":", 2);
                             archivoBuffer.add(partes[1]);
                         }
                         else if (lineaServidor.startsWith("_ARCHIVO_FINALIZADO:")) {
@@ -73,10 +73,13 @@ public class Cliente2025 {
                             archivoRecibidoNombre = partes[1];
                             
                             System.out.println("\n--- ¡Transferencia Completa! ---");
-                            System.out.print("¿Deseas guardar el archivo '" + archivoRecibidoNombre + "'? (GUARDAR:nombre.txt / CANCELAR): ");
+                            System.out.print(partes[2] + " (o CANCELAR): "); 
                         }
                         else if (lineaServidor.startsWith("_RESPUESTA_PERMISO:")) {
                             System.out.println("Servidor: " + lineaServidor);
+                        }
+                        else if (lineaServidor.startsWith("---") || lineaServidor.startsWith("-")) {
+                            System.out.println(lineaServidor);
                         }
                         else {
                             System.out.println("Servidor: " + lineaServidor);
@@ -103,9 +106,9 @@ public class Cliente2025 {
                                 fw.write(linea + "\n");
                             }
                             System.out.println("Archivo guardado como: " + nombreDestino);
-                            archivoBuffer.clear(); 
+                            archivoBuffer.clear();
                             archivoRecibidoNombre = null;
-                            escritorServidor.println("Archivo guardado. Volviendo al menú.");
+                            escritorServidor.println(comando);
                         } catch (IOException e) {
                             System.err.println("ERROR: No se pudo guardar el archivo localmente.");
                             escritorServidor.println("Error al guardar archivo. Volviendo al menú.");
@@ -117,7 +120,7 @@ public class Cliente2025 {
                 else if ("CANCELAR".equalsIgnoreCase(comando)) {
                     archivoBuffer.clear();
                     archivoRecibidoNombre = null;
-                    System.out.println("Guardado cancelado.");
+                    System.out.println("Guardado cancelado. Buffer limpiado.");
                     escritorServidor.println("Operación de transferencia cancelada. Volviendo al menú.");
                 }
                 else {
