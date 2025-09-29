@@ -15,7 +15,9 @@ public class Servidor2025 {
     private static Map<String, String> usuarios = cargarUsuarios();
     private static final String ARCHIVO_MENSAJES = "mensajes.txt";
     private static Map<String, PrintWriter> clientesConectados = new HashMap<>();
-    private static Map<String, List<String>> usuariosBloqueados = new HashMap<>();
+    private static Map<String, List<String>> usuariosBloqueados = new HashMap<>();   
+    private static Map<String, String> transferenciaPendiente = new HashMap<>();   
+    private static Map<String, String> solicitudListaPendiente = new HashMap<>();
 
     public static void main(String[] args) {
         try (ServerSocket servidor = new ServerSocket(8080)) {
@@ -83,6 +85,56 @@ public class Servidor2025 {
             }
         }
     }
+    
+    private static void manejarRespuestaPermiso(String usuarioRespuesta, String accion, String archivoRespuesta) {
+        if (transferenciaPendiente.containsKey(usuarioRespuesta)) {
+            String datosSolicitud = transferenciaPendiente.get(usuarioRespuesta);
+            String[] datos = datosSolicitud.split(":");
+            String usuarioSolicitante = datos[0];
+            String nombreArchivo = datos[1];
+            
+            PrintWriter escritorSolicitante = clientesConectados.get(usuarioSolicitante);
+            PrintWriter escritorOrigen = clientesConectados.get(usuarioRespuesta);
+            
+            if (escritorSolicitante == null) {
+                transferenciaPendiente.remove(usuarioRespuesta);
+                return;
+            }
+            
+            if ("ACEPTAR".equalsIgnoreCase(accion)) {
+                escritorSolicitante.println("Permiso concedido por '" + usuarioRespuesta + "'. Iniciando envío de datos...");
+                
+                if (escritorOrigen != null) {
+                    escritorOrigen.println("_COMANDO_:TRANSFERIR_DATOS:" + nombreArchivo + ":" + usuarioSolicitante);
+                }               
+            } else if ("DENEGAR".equalsIgnoreCase(accion)) {
+                escritorSolicitante.println("El usuario '" + usuarioRespuesta + "' denegó la transferencia del archivo " + nombreArchivo + ".");
+            }           
+            transferenciaPendiente.remove(usuarioRespuesta);
+        }
+    }
+    
+    private static void reenviarDatos(String lineaCompleta) {
+        String[] partes = lineaCompleta.split(":"); 
+        String solicitante = partes[3];
+        String datos = partes[4]; 
+
+        PrintWriter escritorSolicitante = clientesConectados.get(solicitante);
+        if (escritorSolicitante != null) {
+            escritorSolicitante.println("_ARCHIVO_CONTENIDO:" + datos);
+        }
+    }
+    
+    private static void manejarFinTransferencia(String lineaCompleta) {
+        String[] partes = lineaCompleta.split(":"); 
+        String solicitante = partes[2];
+        String nombreArchivo = partes[3];
+
+        PrintWriter escritorSolicitante = clientesConectados.get(solicitante);
+        if (escritorSolicitante != null) {
+             escritorSolicitante.println("_ARCHIVO_FINALIZADO:Escribe 'GUARDAR:" + nombreArchivo + "' para guardarlo en tu maquina.");
+        }
+    }
 
     static class ManejadorCliente implements Runnable {
         private Socket cliente;
@@ -122,9 +174,62 @@ public class Servidor2025 {
                         clientesConectados.put(this.usuarioAutenticado, escritor);
                     }
                     escritor.println(
-                            "Escribe 'jugar', 'chat', 'buzon', 'borrar', 'usuarios', 'eliminar', 'bloquear' o 'cerrar'.");
+                            "Escribe 'jugar', 'chat', 'buzon', 'borrar', 'usuarios', 'eliminar', 'bloquear', 'transferir', 'listar' o 'cerrar'."); 
                     String opcion;
                     while ((opcion = lector.readLine()) != null) {
+                        
+                        if (opcion.startsWith("_RESPUESTA_PERMISO:")) {
+                            String[] partes = opcion.split(":"); 
+                            manejarRespuestaPermiso(this.usuarioAutenticado, partes[1], partes[2]);
+                            continue;
+                        }                      
+                        if (opcion.startsWith("_DATOS_ARCHIVO:")) {
+                            reenviarDatos(opcion);
+                            continue;
+                        }
+                        if (opcion.startsWith("_FIN_ARCHIVO_:")) {
+                            manejarFinTransferencia(opcion);
+                            continue;
+                        }
+                        if (opcion.startsWith("GUARDAR:")) {
+                            escritor.println("Archivo guardado exitosamente. Volviendo al menú."); 
+                            continue;
+                        }
+
+                        if (opcion.startsWith("_RESPUESTA_LISTAR_ARCHIVOS:")) {
+                            String[] partes = opcion.split(":"); 
+                            String solicitante = partes[2];
+                            String usuarioOrigen = this.usuarioAutenticado;
+
+                            if (solicitudListaPendiente.containsKey(usuarioOrigen) && solicitudListaPendiente.get(usuarioOrigen).equals(solicitante)) {
+                                PrintWriter escritorSolicitante = clientesConectados.get(solicitante);
+                                if (escritorSolicitante != null) {
+                                    escritorSolicitante.println("--- Archivos de '" + usuarioOrigen + "' ---");
+                                }
+                            }
+                            continue;
+                        }
+                        
+                        if (solicitudListaPendiente.containsKey(this.usuarioAutenticado) && !opcion.equals("_FIN_LISTA_")) {
+                            String solicitante = solicitudListaPendiente.get(this.usuarioAutenticado);
+                            PrintWriter escritorSolicitante = clientesConectados.get(solicitante);
+                            if (escritorSolicitante != null) {
+                                escritorSolicitante.println(opcion); 
+                            }
+                            continue;
+                        }
+                        
+                        if (opcion.equals("_FIN_LISTA_")) {
+                            if (solicitudListaPendiente.containsKey(this.usuarioAutenticado)) {
+                                String solicitante = solicitudListaPendiente.get(this.usuarioAutenticado);
+                                PrintWriter escritorSolicitante = clientesConectados.get(solicitante);
+                                if (escritorSolicitante != null) {
+                                    escritorSolicitante.println("-------------------------");
+                                }
+                                solicitudListaPendiente.remove(this.usuarioAutenticado); 
+                            }
+                            continue;
+                        } 
                         if ("jugar".equalsIgnoreCase(opcion)) {
                             jugarJuego();
                         } else if ("chat".equalsIgnoreCase(opcion)) {
@@ -140,15 +245,19 @@ public class Servidor2025 {
                             break;
                         } else if ("bloquear".equalsIgnoreCase(opcion)) {
                             manejarBloqueo();
+                        } else if ("transferir".equalsIgnoreCase(opcion)) {
+                            manejarTransferencia();
+                        } else if ("listar".equalsIgnoreCase(opcion)) { 
+                            manejarListarArchivos();
                         } else if ("cerrar".equalsIgnoreCase(opcion)) {
                             cerrarSesion();
                             break;
                         } else {
                             escritor.println(
-                                    "Opcion no reconocida. Escribe 'jugar', 'chat', 'buzon', 'borrar', 'usuarios', 'eliminar', 'bloquear' o 'cerrar'.");
+                                    "Opcion no reconocida. Escribe 'jugar', 'chat', 'buzon', 'borrar', 'usuarios', 'eliminar', 'bloquear', 'transferir', 'listar' o 'cerrar'.");
                         }
                         escritor.println(
-                                "Escribe 'jugar', 'chat', 'buzon', 'borrar', 'usuarios', 'eliminar', 'bloquear' o 'cerrar'.");
+                                "Escribe 'jugar', 'chat', 'buzon', 'borrar', 'usuarios', 'eliminar', 'bloquear', 'transferir', 'listar' o 'cerrar'.");
                     }
                 }
 
@@ -404,6 +513,58 @@ public class Servidor2025 {
             } else {
                 usuariosBloqueados.get(this.usuarioAutenticado).add(usuarioABloquear);
                 escritor.println("Usuario " + usuarioABloquear + " bloqueado exitosamente.");
+            }
+        }
+
+        private void manejarTransferencia() throws IOException {
+            escritor.println("Escribe el usuario y nombre del archivo (Ej: usuarioB:archivo.txt) o 'salir'.");
+            String peticion = lector.readLine();
+            if ("salir".equalsIgnoreCase(peticion)) return;
+
+            if (peticion.contains(":")) {
+                String[] partes = peticion.split(":");
+                String usuarioOrigen = partes[0].trim();
+                String nombreArchivo = partes[1].trim();
+
+                synchronized (clientesConectados) {
+                    PrintWriter escritorOrigen = clientesConectados.get(usuarioOrigen);
+                    PrintWriter escritorRemitente = clientesConectados.get(this.usuarioAutenticado);
+
+                    if (escritorOrigen != null) {
+                        transferenciaPendiente.put(usuarioOrigen, this.usuarioAutenticado + ":" + nombreArchivo);
+                        
+                        escritorOrigen.println("_COMANDO_:TRANSFERIR_PREGUNTA:" + nombreArchivo + ":" + this.usuarioAutenticado);
+                        escritorRemitente.println("Solicitud de permiso enviada a '" + usuarioOrigen + "'. Esperando respuesta...");
+                    } else {
+                        escritorRemitente.println("El usuario '" + usuarioOrigen + "' no está conectado. Transferencia cancelada.");
+                    }
+                }
+            } else {
+                escritor.println("Formato incorrecto. Usa 'usuario:archivo.txt'.");
+            }
+        }
+        
+        private void manejarListarArchivos() throws IOException {
+            escritor.println("Escribe el usuario al que deseas listar los archivos o 'salir'.");
+            String usuarioObjetivo = lector.readLine();
+            if ("salir".equalsIgnoreCase(usuarioObjetivo)) return;
+            
+            if (!usuarios.containsKey(usuarioObjetivo)) {
+                escritor.println("El usuario no existe.");
+                return;
+            }
+
+            synchronized (clientesConectados) {
+                PrintWriter escritorObjetivo = clientesConectados.get(usuarioObjetivo);
+                PrintWriter escritorRemitente = clientesConectados.get(this.usuarioAutenticado);
+
+                if (escritorObjetivo != null) {
+                    solicitudListaPendiente.put(usuarioObjetivo, this.usuarioAutenticado);     
+                    escritorObjetivo.println("_COMANDO_:LISTAR_ARCHIVOS:" + this.usuarioAutenticado); 
+                    escritorRemitente.println("Solicitud de listado enviada a '" + usuarioObjetivo + "'. Esperando respuesta...");
+                } else {
+                    escritorRemitente.println("El usuario '" + usuarioObjetivo + "' no está conectado. Listado cancelado.");
+                }
             }
         }
     }
