@@ -8,6 +8,7 @@ import java.util.Map;
 import java.util.Random;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.regex.Pattern;
 
 public class Servidor2025 {
 
@@ -15,8 +16,8 @@ public class Servidor2025 {
     private static Map<String, String> usuarios = cargarUsuarios();
     private static final String ARCHIVO_MENSAJES = "mensajes.txt";
     private static Map<String, PrintWriter> clientesConectados = new HashMap<>();
-    private static Map<String, List<String>> usuariosBloqueados = new HashMap<>();   
-    private static Map<String, String> transferenciaPendiente = new HashMap<>();   
+    private static Map<String, List<String>> usuariosBloqueados = new HashMap<>();  
+    private static Map<String, String> transferenciaPendiente = new HashMap<>();
     private static Map<String, String> solicitudListaPendiente = new HashMap<>();
 
     public static void main(String[] args) {
@@ -89,7 +90,7 @@ public class Servidor2025 {
     private static void manejarRespuestaPermiso(String usuarioRespuesta, String accion, String archivoRespuesta) {
         if (transferenciaPendiente.containsKey(usuarioRespuesta)) {
             String datosSolicitud = transferenciaPendiente.get(usuarioRespuesta);
-            String[] datos = datosSolicitud.split(":");
+            String[] datos = datosSolicitud.split(":"); 
             String usuarioSolicitante = datos[0];
             String nombreArchivo = datos[1];
             
@@ -106,16 +107,18 @@ public class Servidor2025 {
                 
                 if (escritorOrigen != null) {
                     escritorOrigen.println("_COMANDO_:TRANSFERIR_DATOS:" + nombreArchivo + ":" + usuarioSolicitante);
-                }               
+                }
+                
             } else if ("DENEGAR".equalsIgnoreCase(accion)) {
                 escritorSolicitante.println("El usuario '" + usuarioRespuesta + "' denegó la transferencia del archivo " + nombreArchivo + ".");
-            }           
+            }
+            
             transferenciaPendiente.remove(usuarioRespuesta);
         }
     }
     
     private static void reenviarDatos(String lineaCompleta) {
-        String[] partes = lineaCompleta.split(":"); 
+        String[] partes = lineaCompleta.split(Pattern.quote(":")); 
         String solicitante = partes[3];
         String datos = partes[4]; 
 
@@ -126,13 +129,13 @@ public class Servidor2025 {
     }
     
     private static void manejarFinTransferencia(String lineaCompleta) {
-        String[] partes = lineaCompleta.split(":"); 
-        String solicitante = partes[2];
-        String nombreArchivo = partes[3];
+        String[] partes = lineaCompleta.split(Pattern.quote(":")); 
+        String solicitante = partes[3];
+        String nombreArchivo = partes[4];
 
         PrintWriter escritorSolicitante = clientesConectados.get(solicitante);
         if (escritorSolicitante != null) {
-             escritorSolicitante.println("_ARCHIVO_FINALIZADO:Escribe 'GUARDAR:" + nombreArchivo + "' para guardarlo en tu maquina.");
+             escritorSolicitante.println("_ARCHIVO_FINALIZADO:" + nombreArchivo + ":Escribe 'GUARDAR:" + nombreArchivo + "' para guardarlo.");
         }
     }
 
@@ -174,7 +177,7 @@ public class Servidor2025 {
                         clientesConectados.put(this.usuarioAutenticado, escritor);
                     }
                     escritor.println(
-                            "Escribe 'jugar', 'chat', 'buzon', 'borrar', 'usuarios', 'eliminar', 'bloquear', 'transferir', 'listar' o 'cerrar'."); 
+                            "Escribe 'jugar', 'chat', 'buzon', 'borrar', 'usuarios', 'eliminar', 'bloquear', 'transferir', 'listar' o 'cerrar'.");
                     String opcion;
                     while ((opcion = lector.readLine()) != null) {
                         
@@ -182,7 +185,7 @@ public class Servidor2025 {
                             String[] partes = opcion.split(":"); 
                             manejarRespuestaPermiso(this.usuarioAutenticado, partes[1], partes[2]);
                             continue;
-                        }                      
+                        }                        
                         if (opcion.startsWith("_DATOS_ARCHIVO:")) {
                             reenviarDatos(opcion);
                             continue;
@@ -192,10 +195,10 @@ public class Servidor2025 {
                             continue;
                         }
                         if (opcion.startsWith("GUARDAR:")) {
-                            escritor.println("Archivo guardado exitosamente. Volviendo al menú."); 
+                            escritor.println("Archivo guardado. Volviendo al menú."); 
                             continue;
                         }
-
+                        
                         if (opcion.startsWith("_RESPUESTA_LISTAR_ARCHIVOS:")) {
                             String[] partes = opcion.split(":"); 
                             String solicitante = partes[2];
@@ -209,7 +212,6 @@ public class Servidor2025 {
                             }
                             continue;
                         }
-                        
                         if (solicitudListaPendiente.containsKey(this.usuarioAutenticado) && !opcion.equals("_FIN_LISTA_")) {
                             String solicitante = solicitudListaPendiente.get(this.usuarioAutenticado);
                             PrintWriter escritorSolicitante = clientesConectados.get(solicitante);
@@ -218,7 +220,6 @@ public class Servidor2025 {
                             }
                             continue;
                         }
-                        
                         if (opcion.equals("_FIN_LISTA_")) {
                             if (solicitudListaPendiente.containsKey(this.usuarioAutenticado)) {
                                 String solicitante = solicitudListaPendiente.get(this.usuarioAutenticado);
@@ -226,10 +227,10 @@ public class Servidor2025 {
                                 if (escritorSolicitante != null) {
                                     escritorSolicitante.println("-------------------------");
                                 }
-                                solicitudListaPendiente.remove(this.usuarioAutenticado); 
+                                solicitudListaPendiente.remove(this.usuarioAutenticado);
                             }
                             continue;
-                        } 
+                        }                   
                         if ("jugar".equalsIgnoreCase(opcion)) {
                             jugarJuego();
                         } else if ("chat".equalsIgnoreCase(opcion)) {
@@ -246,8 +247,8 @@ public class Servidor2025 {
                         } else if ("bloquear".equalsIgnoreCase(opcion)) {
                             manejarBloqueo();
                         } else if ("transferir".equalsIgnoreCase(opcion)) {
-                            manejarTransferencia();
-                        } else if ("listar".equalsIgnoreCase(opcion)) { 
+                            manejarTransferencia(); 
+                        } else if ("listar".equalsIgnoreCase(opcion)) {
                             manejarListarArchivos();
                         } else if ("cerrar".equalsIgnoreCase(opcion)) {
                             cerrarSesion();
@@ -559,7 +560,7 @@ public class Servidor2025 {
                 PrintWriter escritorRemitente = clientesConectados.get(this.usuarioAutenticado);
 
                 if (escritorObjetivo != null) {
-                    solicitudListaPendiente.put(usuarioObjetivo, this.usuarioAutenticado);     
+                    solicitudListaPendiente.put(usuarioObjetivo, this.usuarioAutenticado);             
                     escritorObjetivo.println("_COMANDO_:LISTAR_ARCHIVOS:" + this.usuarioAutenticado); 
                     escritorRemitente.println("Solicitud de listado enviada a '" + usuarioObjetivo + "'. Esperando respuesta...");
                 } else {
