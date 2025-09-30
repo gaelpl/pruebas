@@ -9,9 +9,9 @@ import java.util.regex.Pattern;
 public class Cliente2025 {
 
     private static List<String> archivoBuffer = new ArrayList<>();
-    private static String archivoRecibidoNombre = null;  
+    private static String archivoRecibidoNombre = null;
     private static String nombreUsuario = "invitado"; 
-    
+
     private static String obtenerRutaUsuario() {
         return "archivos_cliente" + File.separator + nombreUsuario;
     }
@@ -38,17 +38,17 @@ public class Cliente2025 {
                         if (lineaServidor.contains("Inicio de sesion exitoso. ¡Bienvenido")) {
                             String[] partes = lineaServidor.split("¡Bienvenido ");
                             nombreUsuario = partes[1].replace("!", "").trim();
-                            asegurarDirectorio(); 
+                            asegurarDirectorio();
                         }
                         
                         if (lineaServidor.startsWith("_COMANDO_:")) {
                             String[] partes = lineaServidor.split(Pattern.quote(":"));
                             String comando = partes[1];
-                            String solicitante = partes[3];
-                            String archivo = partes.length > 2 ? partes[2] : null;
+                            String solicitante = partes[2]; 
+                            String archivo = partes.length > 3 ? partes[2] : null; 
                             
                             if ("LISTAR_ARCHIVOS".equalsIgnoreCase(comando)) {
-                                File directorio = new File(obtenerRutaUsuario()); 
+                                File directorio = new File(obtenerRutaUsuario());
                                 File[] archivos = directorio.listFiles((dir, nombre) -> nombre.toLowerCase().endsWith(".txt"));
                                 
                                 escritorServidor.println("_RESPUESTA_LISTAR_ARCHIVOS:" + solicitante);
@@ -61,16 +61,19 @@ public class Cliente2025 {
 
                             } 
                             else if ("TRANSFERIR_PREGUNTA".equalsIgnoreCase(comando)) {
-                                System.out.println("\n** El usuario '" + solicitante + "' quiere el archivo '" + archivo + "'. **");
+                                String nombreArchivo = partes[2];
+                                String solicitanteOrigen = partes[3];
+
+                                System.out.println("\n** El usuario '" + solicitanteOrigen + "' quiere el archivo '" + nombreArchivo + "'. **");
                                 System.out.print("¿Permites la transferencia? (si/no): ");
                             }
                             else if ("TRANSFERIR_DATOS".equalsIgnoreCase(comando)) {
-                                String nombreArchivo = partes[2];
+                                String nombreArchivo = partes[2]; 
                                 String solicitanteOrigen = partes[3];
                                 
                                 System.out.println("\n--- Iniciando envío de '" + nombreArchivo + "' a " + solicitanteOrigen + " ---");
                                 
-                                try (BufferedReader br = new BufferedReader(new FileReader(obtenerRutaUsuario() + File.separator + nombreArchivo))) { 
+                                try (BufferedReader br = new BufferedReader(new FileReader(obtenerRutaUsuario() + File.separator + nombreArchivo))) {
                                     String linea;
                                     while ((linea = br.readLine()) != null) {
                                         escritorServidor.println("_DATOS_ARCHIVO:Origen:" + solicitanteOrigen + ":" + linea);
@@ -91,10 +94,10 @@ public class Cliente2025 {
                         }
                         else if (lineaServidor.startsWith("_ARCHIVO_FINALIZADO:")) {
                             String[] partes = lineaServidor.split(":");
-                            archivoRecibidoNombre = partes[1]; 
+                            archivoRecibidoNombre = partes[1];
                             
                             System.out.println("\n--- ¡Transferencia Completa! ---");
-                            System.out.print(partes[2] + " (o CANCELAR): "); 
+                            System.out.print(partes[2] + ":nombre del archivo (o CANCELAR): "); 
                         }
                         else if (lineaServidor.startsWith("_RESPUESTA_PERMISO:")) {
                             System.out.println("Servidor: " + lineaServidor);
@@ -121,7 +124,15 @@ public class Cliente2025 {
                 else if (comando.startsWith("GUARDAR:")) {
                     String[] partes = comando.split(":");
                     if (partes.length == 2 && archivoRecibidoNombre != null) {
-                        String nombreDestino = obtenerRutaUsuario() + File.separator + partes[1].trim(); 
+                        String nombreArchivo = partes[1].trim(); 
+                        String nombreDestino = obtenerRutaUsuario() + File.separator + nombreArchivo;
+
+                        File archivoDestino = new File(nombreDestino);
+                        File directorioDestino = archivoDestino.getParentFile();
+                        if (directorioDestino != null && !directorioDestino.exists()) {
+                            directorioDestino.mkdirs();
+                        }
+                        
                         try (FileWriter fw = new FileWriter(nombreDestino)) {
                             for (String linea : archivoBuffer) {
                                 fw.write(linea + "\n");
@@ -131,7 +142,7 @@ public class Cliente2025 {
                             archivoRecibidoNombre = null;
                             escritorServidor.println(comando);
                         } catch (IOException e) {
-                            System.err.println("ERROR: No se pudo guardar el archivo localmente.");
+                            System.err.println("ERROR: No se pudo guardar el archivo localmente. Verifique permisos.");
                             escritorServidor.println("Error al guardar archivo. Volviendo al menú.");
                         }
                     } else {

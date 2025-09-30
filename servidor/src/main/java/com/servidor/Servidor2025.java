@@ -16,7 +16,7 @@ public class Servidor2025 {
     private static Map<String, String> usuarios = cargarUsuarios();
     private static final String ARCHIVO_MENSAJES = "mensajes.txt";
     private static Map<String, PrintWriter> clientesConectados = new HashMap<>();
-    private static Map<String, List<String>> usuariosBloqueados = new HashMap<>();    
+    private static Map<String, List<String>> usuariosBloqueados = new HashMap<>();  
     private static Map<String, String> transferenciaPendiente = new HashMap<>();
     private static Map<String, String> solicitudListaPendiente = new HashMap<>();
 
@@ -135,12 +135,15 @@ public class Servidor2025 {
     
     private static void manejarFinTransferencia(String lineaCompleta) {
         String[] partes = lineaCompleta.split(Pattern.quote(":")); 
-        String solicitante = partes[3];
-        String nombreArchivo = partes[4]; 
+        
+        if (partes.length < 4) return; 
+
+        String solicitante = partes[2]; 
+        String nombreArchivo = partes[3]; 
 
         PrintWriter escritorSolicitante = clientesConectados.get(solicitante);
         if (escritorSolicitante != null) {
-             escritorSolicitante.println("_ARCHIVO_FINALIZADO:" + nombreArchivo + ":Escribe 'GUARDAR:" + nombreArchivo + "' para guardarlo.");
+             escritorSolicitante.println("_ARCHIVO_FINALIZADO:" + nombreArchivo + ":Escribe 'GUARDAR:nombre del archivo" + nombreArchivo + "' para guardarlo.");
         }
     }
 
@@ -190,7 +193,8 @@ public class Servidor2025 {
                             String[] partes = opcion.split(":"); 
                             manejarRespuestaPermiso(this.usuarioAutenticado, partes[1], partes[2]);
                             continue;
-                        }                       
+                        }
+                        
                         if (opcion.startsWith("_DATOS_ARCHIVO:")) {
                             reenviarDatos(opcion);
                             continue;
@@ -235,7 +239,7 @@ public class Servidor2025 {
                                 solicitudListaPendiente.remove(this.usuarioAutenticado);
                             }
                             continue;
-                        }
+                        }    
                         if ("jugar".equalsIgnoreCase(opcion)) {
                             jugarJuego();
                         } else if ("chat".equalsIgnoreCase(opcion)) {
@@ -565,7 +569,8 @@ public class Servidor2025 {
                 PrintWriter escritorRemitente = clientesConectados.get(this.usuarioAutenticado);
 
                 if (escritorObjetivo != null) {
-                    solicitudListaPendiente.put(usuarioObjetivo, this.usuarioAutenticado);                   
+                    solicitudListaPendiente.put(usuarioObjetivo, this.usuarioAutenticado);
+                    
                     escritorObjetivo.println("_COMANDO_:LISTAR_ARCHIVOS:" + this.usuarioAutenticado); 
                     escritorRemitente.println("Solicitud de listado enviada a '" + usuarioObjetivo + "'. Esperando respuesta...");
                 } else {
